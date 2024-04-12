@@ -1,3 +1,6 @@
 [submodule "Sandbox/vendor/entt"]
 	path = Sandbox/vendor/entt
 	url = https://github.com/skypjack/entt.git
+[submodule "YoYo"]
+	path = YoYo
+	url = https://github.com/MokaHiko/YoYo.git

@@ -144,7 +144,6 @@ add_custom_target(copy_assets ALL
 	COMMENT "Copying resources into bin and binary folder."
 	COMMAND cmd /c ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/shaders/compile_shaders.bat
 	COMMENT "Compiling shaders.")
-
 add_dependencies(${PROJECT_NAME} copy_assets)
 
 add_custom_target(copy_physx_binaries ALL
