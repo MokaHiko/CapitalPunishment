@@ -44,16 +44,11 @@ public:
     void OnScriptDestroyedCallback(ScriptableEntity* script);
 private:
     void OnCollisionCallback(psx::Collision& col);
-private:
     psx::PhysicsWorld* m_physics_world;
-
-    // TODO: Script cache
-    std::vector<ScriptableEntity*> m_script_cache;
 public:
     // Processes
     void AttachProcess(Ref<Process> process);
     void AbortAllProcesses(bool immediate);
-
     void UpdateProcesses(float dt);
 
     uint32_t ProcessCount() const { return static_cast<uint32_t>(m_processes.size()); }

@@ -22,4 +22,5 @@ public:
     virtual void OnComponentDestroyed(Entity e, TransformComponent& transform) override;
 private:
     void RecursiveUpdate(TransformComponent& node);
+    void RecursiveUpdate(Entity e);
 };

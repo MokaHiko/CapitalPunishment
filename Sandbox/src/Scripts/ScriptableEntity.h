@@ -91,7 +91,6 @@ public:
 public:
     // Scene Queries
     bool Raycast(const yoyo::Vec3& origin, const yoyo::Vec3& dir, float max_distance, psx::RaycastHit& out);
-protected:
     void StartProcess(Ref<Process> process);
 private:
     friend class ScriptingSystem;

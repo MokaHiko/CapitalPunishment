@@ -103,7 +103,7 @@ namespace psx
 			return;
 		}
 
-		actor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, value);
+		actor->setActorFlag(PxActorFlag::eDISABLE_GRAVITY, !value);
 	}
 
 	void RigidBodyComponent::SetMaxLinearVelocity(float max_velocity)

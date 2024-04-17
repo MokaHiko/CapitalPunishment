@@ -17,12 +17,12 @@ void TransformComponent::AddChild(Entity e)
 
     // Remove from previous parent if exists
     Entity previous_parent = e.GetComponent<TransformComponent>().parent;
-    if (previous_parent)
+    if(previous_parent.IsValid())
     {
         previous_parent.GetComponent<TransformComponent>().RemoveChild(e);
     }
 
-    // Parent to self and update 
+    // Parent child self and update 
     e.GetComponent<TransformComponent>().parent = self;
 
     // Add to child list
@@ -62,11 +62,7 @@ void TransformComponent::RemoveChild(Entity e)
     }
     children_count--;
 
-    auto& child_transform = e.GetComponent<TransformComponent>();
-    child_transform.parent = {};
-
-    // TODO: Optionally Parent child back to root
-    //e.GetComponent<TransformComponent>().parent = m_scen->Root();
+    e.GetComponent<TransformComponent>().parent = {}; 
 }
 
 void TransformComponent::UpdateModelMatrix()
@@ -91,6 +87,7 @@ void TransformComponent::UpdateModelMatrix()
     // {
     //     rotation.y = 180 - rotation.y;
     // }
+    m_dirty = false;
 }
 
 yoyo::Mat4x4 TransformComponent::LocalModelMatrix() {
@@ -103,7 +100,6 @@ yoyo::Mat4x4 TransformComponent::LocalModelMatrix() {
 
     return local_model_matrix;
 }
-
 
 void TransformComponent::SetGlobalTransform(const yoyo::Mat4x4 transform_matrix)
 {

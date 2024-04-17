@@ -10,7 +10,7 @@
 #include "Panel/SceneHierarchyPanel.h"
 #include "Panel/InspectorPanel.h"
 #include "Panel/ViewportPanel.h"
-#include "Sandbox.h"
+#include "CapitalPunishment.h"
 
 #include <Input/Input.h>
 
@@ -25,7 +25,6 @@ EditorLayer::~EditorLayer() {}
 void EditorLayer::OnImGuiRender() 
 {
 	YASSERT(m_scene != nullptr, "Invalid scene!");
-
 	if(yoyo::Input::GetKeyDown(yoyo::KeyCode::Key_backquote))
 	{
 		m_hide = !m_hide;
@@ -46,7 +45,6 @@ void EditorLayer::OnAttach()
 {
 	m_panels.push_back(CreateRef<SceneHierarchyPanel>());
 	m_panels.push_back(CreateRef<InspectorPanel>());
-
 }
 
 void EditorLayer::OnDetatch() {}
@@ -62,6 +60,7 @@ void EditorLayer::OnEnable()
 	// Get context from imgui layer
 	ImGuiContext* ctx = yoyo::ImGuiLayer::GetContext();
 	YASSERT(ctx != nullptr, "Invalid ImGuiContext!");
+
     ImGui::SetCurrentContext(ctx);
 	ImGuizmo::SetImGuiContext(ctx);
 

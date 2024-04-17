@@ -51,6 +51,13 @@ void SceneHierarchyPanel::DrawNodeRecursive(Entity node, bool open)
 	static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanFullWidth;
 	static Entity focused = {};
 
+	if (!node.IsValid())
+	{
+		YERROR("Attempting to draw invalid node!");
+		return;
+	}
+
+
 	ImGuiTreeNodeFlags node_flags = base_flags;
 
 	if(open)

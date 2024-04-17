@@ -16,6 +16,7 @@ layout(location = 3) out vec2 v_uv;
 struct ObjectData 
 {
 	mat4 model_matrix;
+  vec4 color;
 };
 
 struct Bone

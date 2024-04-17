@@ -34,6 +34,7 @@ void Projectile::OnCollisionEnter(const psx::Collision& col) {
 
 void Projectile::Die() 
 {
+	//Destroy();
 	if(!ToDestroy())
 	{
 		QueueDestroy();

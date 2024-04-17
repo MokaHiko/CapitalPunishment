@@ -12,9 +12,9 @@
 #include <Renderer/Animation.h>
 
 #include "ECS/Components/RenderableComponents.h"
+#include "ParticleSystem/Particles.h"
 
 #include "Villager.h"
-#include "Destructable.h"
 
 #include "Unit.h"
 #include "UnitController.h"
@@ -25,9 +25,7 @@ static yoyo::PRNGenerator<float> pos_generator(-100.0f, 100.0f);
 static yoyo::PRNGenerator<float> height_generator(2.0f, 15.0f);
 
 VillageManagerComponent::VillageManagerComponent(Entity e)
-	:ScriptableEntity(e)
-{
-}
+	:ScriptableEntity(e){}
 
 VillageManagerComponent::~VillageManagerComponent() {}
 
@@ -42,7 +40,7 @@ void VillageManagerComponent::OnUpdate(float dt)
 		{
 			SpawnVillager();
 
-			for(int i = 0; i < 0; i++)
+			for(int i = 0; i < 5; i++)
 			{
 				SpawnEnemy();
 			}
@@ -68,8 +66,6 @@ void VillageManagerComponent::TraverseRecursive(const yoyo::SkeletalNode* node, 
 	Entity joint = Instantiate(joint_name.c_str(), {node->transform});
 	parent.GetComponent<TransformComponent>().AddChild(joint);
 
-	//auto& mesh_renderer = joint.AddComponent<MeshRendererComponent>("Cube", "default_material");
-
 	for (yoyo::SkeletalNode* child : node->children)
 	{
 		TraverseRecursive(child, joints, joint);
@@ -81,9 +77,8 @@ void VillageManagerComponent::SpawnVillager(const VillagerProps& props)
 	static auto villager_model = yoyo::ResourceManager::Instance().Load<yoyo::Model>("assets/models/Humanoid.yo");
 	static auto skinned_villager_material = yoyo::ResourceManager::Instance().Load<yoyo::Material>("skinned_people_material");
 
-	auto villager = Instantiate("villager", { 0.0f, 0.0f, 0.0f });
-	TransformComponent& model_transform = villager.GetComponent<TransformComponent>();
-	model_transform.scale *= 0.05f;
+	Entity villager = Instantiate("villager", { 0.0f, 0.0f, 0.0f });
+	villager.GetComponent<TransformComponent>().scale *= 0.05f;
 
 	for (int i = 0; i < villager_model->meshes.size(); i++)
 	{
@@ -92,14 +87,13 @@ void VillageManagerComponent::SpawnVillager(const VillagerProps& props)
 		if (mesh_type == yoyo::MeshType::Skinned)
 		{
 			Ref<yoyo::SkinnedMesh> mesh = std::static_pointer_cast<yoyo::SkinnedMesh>(villager_model->meshes[i]);
-
 			Entity child = Instantiate(mesh->name, villager_model->model_matrices[i]);
-			model_transform.AddChild(child);
+			villager.GetComponent<TransformComponent>().AddChild(child);
 
 			auto& mesh_renderer = child.AddComponent<MeshRendererComponent>();
-			mesh_renderer.mesh = mesh;
+			mesh_renderer.SetMesh(mesh);
+			mesh_renderer.SetMaterial(skinned_villager_material);
 			mesh_renderer.type = mesh_type;
-			mesh_renderer.material = skinned_villager_material;
 
 			// TODO: Fix animator component updating multiple times each component
 			AnimatorComponent& animator = child.AddComponent<AnimatorComponent>();
@@ -110,7 +104,7 @@ void VillageManagerComponent::SpawnVillager(const VillagerProps& props)
 	}
 
 	villager.AddComponent<psx::RigidBodyComponent>().LockRotationAxis({1,0,1});
-	psx::BoxColliderComponent& box_collider = villager.AddComponent<psx::BoxColliderComponent>();
+	villager.AddComponent<psx::BoxColliderComponent>();
 
 	villager.AddComponent<Unit>(villager);
 	villager.AddComponent<UnitController>(villager);
@@ -126,8 +120,7 @@ void VillageManagerComponent::SpawnEnemy()
 
 	//auto villager = Instantiate("enemy_villager", { 10.0f, 0.0f, 0.0f });
 	auto villager = Instantiate("enemy_villager", { pos_generator.Next(), 0.0f, pos_generator.Next() });
-	TransformComponent& model_transform = villager.GetComponent<TransformComponent>();
-	model_transform.scale *= 0.05f;
+	villager.GetComponent<TransformComponent>().scale *= 0.05f;
 
 	for (int i = 0; i < villager_model->meshes.size(); i++)
 	{
@@ -138,13 +131,12 @@ void VillageManagerComponent::SpawnEnemy()
 			Ref<yoyo::SkinnedMesh> mesh = std::static_pointer_cast<yoyo::SkinnedMesh>(villager_model->meshes[i]);
 
 			Entity child = Instantiate(mesh->name, villager_model->model_matrices[i]);
-			model_transform.AddChild(child);
+			villager.GetComponent<TransformComponent>().AddChild(child);
 
 			auto& mesh_renderer = child.AddComponent<MeshRendererComponent>();
-			mesh_renderer.mesh = mesh;
+			mesh_renderer.SetMesh(mesh);
+			mesh_renderer.SetMaterial(skinned_villager_material);
 			mesh_renderer.type = mesh_type;
-			mesh_renderer.material = skinned_villager_material;
-
 			// TODO: Fix animator component updating multiple times each component
 			// AnimatorComponent& animator = child.AddComponent<AnimatorComponent>();
 			// animator.animator->skinned_mesh = mesh;
@@ -154,7 +146,7 @@ void VillageManagerComponent::SpawnEnemy()
 	}
 
 	villager.AddComponent<psx::RigidBodyComponent>().LockRotationAxis({1,0,1});
-	psx::BoxColliderComponent& box_collider = villager.AddComponent<psx::BoxColliderComponent>();
+	villager.AddComponent<psx::BoxColliderComponent>();
 
 	villager.AddComponent<Unit>(villager).GetMovementStats().ms *= 0.80f;
 	villager.AddComponent<UnitController>(villager);
@@ -185,9 +177,9 @@ void VillageManagerComponent::SpawnMutant()
 
 			{
 				auto& mesh_renderer = child.AddComponent<MeshRendererComponent>();
-				mesh_renderer.mesh = mesh;
+				mesh_renderer.SetMesh(mesh);
+				mesh_renderer.SetMaterial(skinned_mutant_material);
 				mesh_renderer.type = mesh_type;
-				mesh_renderer.material = skinned_mutant_material;
 			}
 
 			static bool do_once = [&]()
@@ -206,6 +198,5 @@ void VillageManagerComponent::SpawnMutant()
 
 	mutant.AddComponent<Unit>(mutant);
 	mutant.AddComponent<UnitController>(mutant);
-
 	m_villager_count++;
 }

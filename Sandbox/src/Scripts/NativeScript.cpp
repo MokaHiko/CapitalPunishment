@@ -2,8 +2,17 @@
 
 #include "ScriptEvents.h"
 #include "Process.h"
-
 #include "Physics/PhysicsEvents.h"
+
+#include "Scripts/CameraController.h"
+#include "Scripts/Enemy.h"
+#include "Scripts/Projectile.h"
+#include "Scripts/Sun.h"
+#include "Scripts/Turret.h"
+#include "Scripts/Unit.h"
+#include "Scripts/UnitController.h"
+#include "Scripts/VillageManager.h"
+#include "Scripts/Villager.h"
 
 void ScriptingSystem::Init()
 {
@@ -25,38 +34,44 @@ void ScriptingSystem::Init()
 		return false;
 	});
 }
+void ScriptingSystem::Shutdown() {}
 
-void ScriptingSystem::Shutdown()
+template<typename T>
+void UpdateScript(Scene* scene, float dt)
 {
-	for (ScriptableEntity* script : m_script_cache)
+	for (auto entity : scene->Registry().group<T>())
 	{
-		YDELETE script;
+		Entity e(entity, scene);
+		T& script = e.GetComponent<T>();
+
+		if (!e.GetComponent<T>().IsActive())
+		{
+			continue;
+		}
+
+		if (!script.started)
+		{
+			e.GetComponent<T>().OnStart();
+			e.GetComponent<T>().started = true;
+		}
+
+		e.GetComponent<T>().OnUpdate(dt);
 	}
 }
 
 void ScriptingSystem::Update(float dt)
 {
-	for (auto entity : GetScene()->Registry().view<TransformComponent, NativeScriptComponent>())
-	{
-		Entity e(entity, GetScene());
-		NativeScriptComponent& ns = e.GetComponent<NativeScriptComponent>();
+	const auto& scene = GetScene();
 
-		for (int i = 0; i < ns.m_scripts_count; i++)
-		{
-			if (!ns.m_scripts[i]->IsActive())
-			{
-				continue;
-			}
-
-			if (!ns.m_scripts[i]->started)
-			{
-				ns.m_scripts[i]->OnStart();
-				ns.m_scripts[i]->started = true;
-			}
-
-			ns.m_scripts[i]->OnUpdate(dt);
-		}
-	}
+	UpdateScript<CameraControllerComponent>(scene, dt);
+	UpdateScript<Enemy>(scene, dt);
+	UpdateScript<Projectile>(scene, dt);
+	UpdateScript<SunComponent>(scene, dt);
+	UpdateScript<Turret>(scene, dt);
+	UpdateScript<Unit>(scene, dt);
+	UpdateScript<UnitController>(scene, dt);
+	UpdateScript<VillageManagerComponent>(scene, dt);
+	UpdateScript<VillagerComponent>(scene, dt);
 
 	// Process are updated after all scripts
 	UpdateProcesses(dt);
@@ -68,42 +83,31 @@ void ScriptingSystem::OnComponentCreated(Entity e, NativeScriptComponent& native
 
 void ScriptingSystem::OnComponentDestroyed(Entity e, NativeScriptComponent& native_script)
 {
-	for (int i = 0; i < native_script.m_scripts_count; i++)
-	{
-		native_script.RemoveScript(native_script.m_scripts[i]);
-	}
 }
 
 void ScriptingSystem::OnScriptCreatedCallback(ScriptableEntity* script)
 {
-	if (!script->GameObject().HasComponent<NativeScriptComponent>())
-	{
-		auto& ns = script->GameObject().AddComponent<NativeScriptComponent>();
-		ns.AddScript(script);
-	}
-	else
-	{
-		NativeScriptComponent& ns = script->GameObject().GetComponent<NativeScriptComponent>();
-		ns.AddScript(script);
-	}
-
-	// TODO: Find a better way to handle this, possibly event driven.
-	// Assign scripting system and physics world
+	script->ToggleActive(true);
 	script->m_scripting_system = this;
 	script->m_physics_world = m_physics_world;
 }
 
 void ScriptingSystem::OnScriptDestroyedCallback(ScriptableEntity* script)
 {
-	YASSERT(script, "attempting to destroy invalid script");
+}
 
-	if (!script->GameObject().HasComponent<NativeScriptComponent>())
+template<typename T>
+void ProcessScriptCollision(psx::Collision& col, Entity& e1, Entity& e2)
+{
+	if (e1.HasComponent<T>())
 	{
-		auto& ns = script->GameObject().AddComponent<NativeScriptComponent>();
-		ns.RemoveScript(script);
+		e1.GetComponent<T>().OnCollisionEnter(col);
+	}
 
-		script->OnDestroy();
-		YDELETE script;
+	if (e2.HasComponent<T>())
+	{
+		std::swap(col.a, col.b);
+		e2.GetComponent<T>().OnCollisionEnter(col);
 	}
 }
 
@@ -112,36 +116,15 @@ void ScriptingSystem::OnCollisionCallback(psx::Collision& col)
 	Entity e1(col.a, GetScene());
 	Entity e2(col.b, GetScene());
 
-	if (e1.HasComponent<NativeScriptComponent>())
-	{
-		NativeScriptComponent& ns = e1.GetComponent<NativeScriptComponent>();
-
-		for (int i = 0; i < ns.m_scripts_count; i++)
-		{
-			if (!ns.m_scripts[i]->IsActive())
-			{
-				continue;
-			}
-
-			ns.m_scripts[i]->OnCollisionEnter(col);
-		}
-	}
-
-	if (e2.HasComponent<NativeScriptComponent>())
-	{
-		NativeScriptComponent& ns = e2.GetComponent<NativeScriptComponent>();
-		std::swap(col.a, col.b);
-
-		for (int i = 0; i < ns.m_scripts_count; i++)
-		{
-			if (!ns.m_scripts[i]->IsActive())
-			{
-				continue;
-			}
-
-			ns.m_scripts[i]->OnCollisionEnter(col);
-		}
-	}
+	ProcessScriptCollision<CameraControllerComponent>(col, e1, e2);
+	ProcessScriptCollision<Enemy>(col, e1, e2);
+	ProcessScriptCollision<Projectile>(col, e1, e2);
+	ProcessScriptCollision<SunComponent>(col, e1, e2);
+	ProcessScriptCollision<Turret>(col, e1, e2);
+	ProcessScriptCollision<Unit>(col, e1, e2);
+	ProcessScriptCollision<UnitController>(col, e1, e2);
+	ProcessScriptCollision<VillageManagerComponent>(col, e1, e2);
+	ProcessScriptCollision<VillagerComponent>(col, e1, e2);
 }
 
 void ScriptingSystem::AttachProcess(Ref<Process> process)

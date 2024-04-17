@@ -18,9 +18,9 @@ struct ParticleSystemComponent
     ~ParticleSystemComponent();
 
     const std::vector<yoyo::Particle>& GetParticles() const;
-    std::vector<yoyo::Particle>& GetParticles();
 
     const uint32_t GetMaxParticles() const;
+    const uint32_t GetParticlesAlive() const;
 
     void SetMaxParticles(uint32_t size);
 
@@ -36,10 +36,29 @@ struct ParticleSystemComponent
     const yoyo::ParticleSystemSpace GetSimulationSpace() const;
     void SetSimulationSpace(yoyo::ParticleSystemSpace simulation_space);
 
-    const std::vector<Ref<yoyo::Material>> GetMaterials() const {return m_materials;}
-    
+    const bool IsBillBoard() const {return m_is_billboard;}
+    void ToggleBillBoard(bool is_billboard);
+
+    const std::vector<Ref<yoyo::Material>> GetMaterials() const { return m_materials; }
+
     // Adds a material to the particle system
     void AddMaterial(Ref<yoyo::Material> material);
+public:
+    // Properties
+    const std::pair<float, float>& GetLifeTimeRange() const;
+    void SetLifeTimeRange(float min, float max);
+
+    const std::pair<float, float>& GetScaleRange() const;
+    void SetScaleRange(float min, float max);
+
+    const std::pair<yoyo::Vec3, yoyo::Vec3>& GetPositionOffsetRange() const;
+    void SetPositionOffsetRange(const yoyo::Vec3& min, const yoyo::Vec3& max);
+
+    const std::pair<yoyo::Vec3, yoyo::Vec3>& GetLinearVelocityRange() const;
+    void SetLinearVelocityRange(const yoyo::Vec3& min, const yoyo::Vec3& max);
+
+    const std::pair<yoyo::Vec3, yoyo::Vec3>& GetAngularVelocityRange() const;
+    void SetAngularVelocityRange(const yoyo::Vec3& min, const yoyo::Vec3& max);
 private:
     friend class ParticleSystemManager;
     Ref<yoyo::ParticleSystem> m_particle_system;
@@ -49,9 +68,9 @@ private:
 
     // Materials
     std::vector<Ref<yoyo::Material>> m_materials;
-private:
-        // Batch Rendering
-        //Ref<MeshPassObject> particle_batch_mesh = nullptr;
+
+    // Whether to be rendered as billboard
+    bool m_is_billboard = true;
 };
 
 // Updates transforms and relative transform components of the scene hierarchy

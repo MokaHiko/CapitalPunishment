@@ -6,6 +6,8 @@ layout(location = 0) in vec3 v_position_world_space;
 layout(location = 1) in vec3 v_color;
 layout(location = 2) in vec2 v_uv;
 
+layout(location = 3) in vec4 v_particle_color;
+
 struct DirectionalLight {
   mat4 view_proj;
 
@@ -41,7 +43,12 @@ layout(set = 2, binding = 0) uniform Material {
 
 void main() {
   vec4 diffuse = texture(main_texture, v_uv) * diffuse_color;
-  vec4 final_color = diffuse;
+  vec4 final_color = diffuse * v_particle_color;
+
+  if(final_color.a < 0.01)
+  {
+    discard;
+  }
 
   frag_color = final_color;
 }

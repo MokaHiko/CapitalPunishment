@@ -37,8 +37,8 @@ static void MatrixInput(const char* name, yoyo::Mat4x4& mat)
 		ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x / 4.0f);
 		for (int i = 0; i < 4; i++)
 		{
-			ImGui::DragFloat("##label", &mat.data[0 + i], 0.1f); ImGui::SameLine();
 			ImGui::DragFloat("##label", &mat.data[4 + i], 0.1f); ImGui::SameLine();
+			ImGui::DragFloat("##label", &mat.data[0 + i], 0.1f); ImGui::SameLine();
 			ImGui::DragFloat("##label", &mat.data[8 + i], 0.1f); ImGui::SameLine();
 			ImGui::DragFloat("##label", &mat.data[12 + i], 0.1f);
 		}
@@ -68,7 +68,7 @@ void InspectorPanel::Draw(Scene* scene)
 	if (Entity e = m_focused_entity)
 	{
 		const TagComponent& tag = e.GetComponent<TagComponent>();
-		ImGui::Text("%s", tag.tag.c_str());
+		ImGui::Text("%s [%d]", tag.tag.c_str(), e.Id());
 
 		ImGui::Separator();
 
@@ -310,7 +310,7 @@ void InspectorPanel::DrawComponents()
 			switch (mesh_renderer.type)
 			{
 			case yoyo::MeshType::Static: {
-				Ref<yoyo::StaticMesh> mesh = std::static_pointer_cast<yoyo::StaticMesh>(mesh_renderer.mesh);
+				Ref<yoyo::StaticMesh> mesh = std::static_pointer_cast<yoyo::StaticMesh>(mesh_renderer.GetMesh());
 				ImGui::Text("Name: %s", mesh->name.c_str());
 				ImGui::Text("Id: %u", mesh->Id());
 				ImGui::Text("Vertices: %d", mesh->GetVertexCount());
@@ -318,7 +318,7 @@ void InspectorPanel::DrawComponents()
 			}break;
 
 			case yoyo::MeshType::Skinned: {
-				Ref<yoyo::SkinnedMesh> mesh = std::static_pointer_cast<yoyo::SkinnedMesh>(mesh_renderer.mesh);
+				Ref<yoyo::SkinnedMesh> mesh = std::static_pointer_cast<yoyo::SkinnedMesh>(mesh_renderer.GetMesh());
 				ImGui::Text("Name: %s", mesh->name.c_str());
 				ImGui::Text("Mesh Id: %u", mesh->Id());
 				ImGui::Text("Renderer Id: %u", mesh_renderer.mesh_object->Id());
@@ -356,7 +356,7 @@ void InspectorPanel::DrawComponents()
 			ImGui::TreePop();
 		}
 
-		Ref<yoyo::Material> material = mesh_renderer.material;
+		Ref<yoyo::Material> material = mesh_renderer.GetMaterial();
 		MaterialInspectorNode(material);
 		}, false);
 
@@ -417,21 +417,51 @@ void InspectorPanel::DrawComponents()
 
 	DrawComponentUI<ParticleSystemComponent>("ParticleSystem", m_focused_entity, [](ParticleSystemComponent& particle_system_component) {
 		int max_particles = particle_system_component.GetMaxParticles();
-		if (ImGui::DragInt("Max particles", &max_particles))
+
+		ImGui::Text("Particles alive: %u", particle_system_component.GetParticlesAlive());
+		if (ImGui::DragInt("Max particles", &max_particles, 1.0f, 0))
 		{
 			particle_system_component.SetMaxParticles(max_particles);
 		}
 
 		yoyo::Vec3 gravity_scale = particle_system_component.GetGravityScale();
-		if (ImGui::DragFloat3("Max particles", gravity_scale.elements))
+		if (ImGui::DragFloat3("Gravity scale", gravity_scale.elements))
 		{
 			particle_system_component.SetGravityScale(gravity_scale);
 		}
 
 		int emission_rate = particle_system_component.GetEmissionRate();
-		if (ImGui::DragInt("Max particles", &emission_rate))
+		if (ImGui::DragInt("Emission rate", &emission_rate))
 		{
 			particle_system_component.SetEmissionRate(emission_rate);
+		}
+
+		std::pair<float, float> life_time_range = particle_system_component.GetLifeTimeRange();
+		if (ImGui::DragFloatRange2("Lifetime", &life_time_range.first, &life_time_range.second), ImGuiSliderFlags_AlwaysClamp)
+		{
+			particle_system_component.SetLifeTimeRange(life_time_range.first, life_time_range.second);
+		}
+
+		std::pair<yoyo::Vec3, yoyo::Vec3> position_offset = particle_system_component.GetPositionOffsetRange();
+		ImGui::Text("Position Offset");
+		if(ImGui::DragFloat3("min pos", position_offset.first.elements))
+		{
+			particle_system_component.SetPositionOffsetRange(position_offset.first, position_offset.second);
+		} 
+		if(ImGui::DragFloat3("max pos", position_offset.second.elements))
+		{
+			particle_system_component.SetPositionOffsetRange(position_offset.first, position_offset.second);
+		}
+
+		std::pair<yoyo::Vec3, yoyo::Vec3> linear_velocity_range = particle_system_component.GetLinearVelocityRange();
+		ImGui::Text("Linear Velocity Range");
+		if(ImGui::DragFloat3("min v", linear_velocity_range.first.elements))
+		{
+			particle_system_component.SetLinearVelocityRange(linear_velocity_range.first, linear_velocity_range.second);
+		} 
+		if(ImGui::DragFloat3("max v", linear_velocity_range.second.elements))
+		{
+			particle_system_component.SetLinearVelocityRange(linear_velocity_range.first, linear_velocity_range.second);
 		}
 
 		static const char* particle_space_strings[] = 
@@ -445,7 +475,6 @@ void InspectorPanel::DrawComponents()
 
 		ImGui::Text("Simulation Space"); ImGui::SameLine();
 		if (ImGui::Button(particle_space_strings[simulation_space])) { ImGui::OpenPopup("SimulationSpacePopUp"); }
-
 		if (ImGui::BeginPopup("SimulationSpacePopUp"))
 		{
 			if (ImGui::Selectable(particle_space_strings[0], 0 == simulation_space))

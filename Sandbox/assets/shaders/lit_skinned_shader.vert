@@ -25,6 +25,7 @@ struct DirectionalLight {
 struct ObjectData 
 {
 	mat4 model_matrix;
+  vec4 color;
 };
 
 struct Bone

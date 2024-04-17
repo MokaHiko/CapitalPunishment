@@ -1,6 +1,7 @@
 #include "Unit.h"
 
 #include <Renderer/Material.h>
+#include <Resource/ResourceManager.h>
 
 #include "ECS/Components/RenderableComponents.h"
 #include "Process.h"
@@ -12,6 +13,10 @@ Unit::~Unit() {}
 
 void Unit::TakeDamage(float damage, DamageType type)
 {
+	// TODO: reference to unit's materials material
+	static const Ref<yoyo::Material> material = m_view.GetComponent<MeshRendererComponent>().GetMaterial();
+	static const Ref<yoyo::Material> damaged_material = yoyo::ResourceManager::Instance().Load<yoyo::Material>("skinned_damaged_material");	
+
 	switch (type)
 	{
 	case(DamageType::Pure):
@@ -23,8 +28,7 @@ void Unit::TakeDamage(float damage, DamageType type)
 		MeshRendererComponent* mesh_renderer;
 		if (m_view.TryGetComponent<MeshRendererComponent>(&mesh_renderer))
 		{
-			yoyo::Vec4 color = yoyo::Vec4{ 1.0f, 0.0f, 0.0f, 1.0f };
-			mesh_renderer->material->SetProperty("diffuse_color", color.elements);
+			mesh_renderer->SetMaterial(damaged_material);
 		}
 
 		// Queue reset 
@@ -34,8 +38,7 @@ void Unit::TakeDamage(float damage, DamageType type)
 				MeshRendererComponent* mesh_renderer;
 				if (m_view.TryGetComponent<MeshRendererComponent>(&mesh_renderer))
 				{
-					yoyo::Vec4 color = yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f };
-					mesh_renderer->material->SetProperty("diffuse_color", color.elements);
+					mesh_renderer->SetMaterial(material);
 				}
 
 				reset_pure_damage_effect_process.reset();

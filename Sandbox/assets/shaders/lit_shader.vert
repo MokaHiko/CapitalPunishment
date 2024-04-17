@@ -22,6 +22,7 @@ struct DirectionalLight {
 struct ObjectData 
 {
 	mat4 model_matrix;
+  vec4 color;
 };
 
 layout(set = 0, binding = 0) uniform SceneData {

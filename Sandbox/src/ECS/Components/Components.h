@@ -5,14 +5,10 @@
 
 #include "ECS/Entity.h"
 
+static const int MAX_CHILDREN = 200;
 struct TransformComponent
 {
 public:
-    static const int MAX_CHILDREN = 200;
-
-    TransformComponent() = default;
-    ~TransformComponent() = default;
-    
     yoyo::Vec3 position{ 0.0f , 0.0f, 0.0f};
     yoyo::Vec3 rotation{ 0.0f , 0.0f, 0.0f}; // Rotation in euler radians
     yoyo::Vec3 scale{ 1.0f , 1.0f, 1.0f};
@@ -28,9 +24,10 @@ public:
 
     yoyo::Quat quat_rotation = {0.0f, 0.0f, 0.0f, 1.0f};
 public:
+    // Parenting
     void AddChild(Entity e);
     void RemoveChild(Entity e);
-
+public:
     void UpdateModelMatrix();
     yoyo::Mat4x4 LocalModelMatrix();
 
@@ -47,14 +44,13 @@ public:
 
     void SetLocalTranslationMatrix(const yoyo::Mat4x4& mat) {m_local_translation_matrix = mat;}
 private:
-    friend class SceneGraph;
-    bool dirty_flag = false;
+    bool m_dirty = false;
 
     yoyo::Mat4x4 m_local_translation_matrix{};
     yoyo::Mat4x4 m_local_rotation_matrix{};
     yoyo::Mat4x4 m_local_scale_matrix{};
 
-    yoyo::Vec3 m_forward;
+    yoyo::Vec3 m_forward = { 0.0f, 0.0f, 1.0f };
 };
 
 struct TagComponent

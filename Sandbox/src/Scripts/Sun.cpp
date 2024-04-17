@@ -17,10 +17,9 @@ void SunComponent::OnStart() {}
 
 void SunComponent::OnUpdate(float dt) 
 {
-	return;
 	auto& transform = GetComponent<TransformComponent>();
 
-	// TODO: Define in sandbox scene
+	// TODO: Define in CapitalPunishment scene
 	static float time = 0.0f;
 	static float day_duration = 5.0f;
 

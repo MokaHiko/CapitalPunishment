@@ -79,7 +79,6 @@ public:
     entt::registry& Registry();
 private:
     std::vector<Entity> m_destruction_queue;
-
     Entity m_root;
     entt::registry m_registry;
 };

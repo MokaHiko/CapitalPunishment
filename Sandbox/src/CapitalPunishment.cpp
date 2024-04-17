@@ -1,4 +1,4 @@
-#include "Sandbox.h"
+#include "CapitalPunishment.h"
 
 #include <Yoyo.h>
 
@@ -12,6 +12,7 @@
 #include <Input/Input.h>
 
 #include <Core/Memory.h>
+#include <Core/Time.h>
 #include <Resource/ResourceManager.h>
 
 #include <Renderer/RendererLayer.h>
@@ -77,6 +78,8 @@ void GameLayer::OnEnable()
     m_physics_world->Init();
     m_scripting->Init();
 
+    m_render_packet = new yoyo::RenderPacket();
+
     // Load assets
     Ref<yoyo::Shader> default_lit = yoyo::ResourceManager::Instance().Load<yoyo::Shader>("lit_shader");
     Ref<yoyo::Shader> default_lit_instanced = yoyo::ResourceManager::Instance().Load<yoyo::Shader>("lit_instanced_shader");
@@ -94,7 +97,7 @@ void GameLayer::OnEnable()
     default_instanced_material->SetTexture(yoyo::MaterialTextureType::MainTexture, default_instanced_texture);
     default_instanced_material->SetVec4("diffuse_color", yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
     default_instanced_material->SetVec4("specular_color", yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
-    default_instanced_material->SetColor(yoyo::Vec4{1.0f, 1.0f, 1.0f, 1.0f});
+    default_instanced_material->SetColor(yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
 
     yoyo::ResourceManager::Instance().Load<yoyo::Model>("assets/models/plane.yo");
     Ref<yoyo::Model> cube_model = yoyo::ResourceManager::Instance().Load<yoyo::Model>("assets/models/cube.yo");
@@ -135,6 +138,11 @@ void GameLayer::OnEnable()
         skinned_people_material->SetVec4("diffuse_color", yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
         skinned_people_material->SetVec4("specular_color", yoyo::Vec4{ 0.0f, 0.0f, 0.0f, 0.0f });
 
+        Ref<yoyo::Material> skinned_damaged_material = yoyo::Material::Create(skinned_lit, "skinned_damaged_material");
+        skinned_damaged_material->SetTexture(yoyo::MaterialTextureType::MainTexture, yoyo::ResourceManager::Instance().Load<yoyo::Texture>("assets/textures/people_texture_map.yo"));
+        skinned_damaged_material->SetColor(yoyo::Vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
+        skinned_damaged_material->SetVec4("diffuse_color", yoyo::Vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
+        skinned_damaged_material->SetVec4("specular_color", yoyo::Vec4{ 0.0f, 0.0f, 0.0f, 0.0f });
 #ifdef Y_DEBUG
         {
             Ref<yoyo::Shader> skinned_lit_debug = yoyo::ResourceManager::Instance().Load<yoyo::Shader>("skinned_lit_debug_shader");
@@ -173,8 +181,7 @@ void GameLayer::OnEnable()
     // Lights
     {
         Ref<yoyo::Material> light_material = yoyo::Material::Create(default_lit, "light_material");
-        light_material->ToggleReceiveShadows(false);
-
+        //light_material->ToggleReceiveShadows(false);
         light_material->SetTexture(yoyo::MaterialTextureType::MainTexture, yoyo::ResourceManager::Instance().Load<yoyo::Texture>("assets/textures/prototype_512x512_white.yo"));
 
         // TODO: Apply material color
@@ -183,15 +190,13 @@ void GameLayer::OnEnable()
         light_material->SetVec4("specular_color", yoyo::Vec4{ 1.0, 1.0f, 1.0f, 1.0f });
 
         Entity light = m_scene->Instantiate("light", { 100.0f, 60.0f, 5.0f });
-        TransformComponent& transform = light.GetComponent<TransformComponent>();
-
         Ref<yoyo::DirectionalLight> dir_light = light.AddComponent<DirectionalLightComponent>().dir_light;
         dir_light->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-        dir_light->direction = yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f } *-1.0f;
+        dir_light->direction = yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f } * -1.0f;
 
         auto& mesh_renderer = light.AddComponent<MeshRendererComponent>();
-        mesh_renderer.mesh = yoyo::ResourceManager::Instance().Load<yoyo::StaticMesh>("Cube");
-        mesh_renderer.material = light_material;
+        mesh_renderer.SetMesh(yoyo::ResourceManager::Instance().Load<yoyo::StaticMesh>("Cube"));
+        mesh_renderer.SetMaterial(light_material);
 
         light.AddComponent<SunComponent>(light);
     }
@@ -217,14 +222,12 @@ void GameLayer::OnEnable()
         Ref<yoyo::Material> grid_material = yoyo::Material::Create(default_lit_instanced, "grid_material");
         Ref<yoyo::Texture> grid_texture = yoyo::ResourceManager::Instance().Load<yoyo::Texture>("assets/textures/prototype_512x512_white.yo");
         grid_texture->SetSamplerType(yoyo::TextureSamplerType::Linear);
-
         grid_material->SetTexture(yoyo::MaterialTextureType::MainTexture, grid_texture);
-        grid_material->SetColor(yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f});
+        grid_material->SetColor(yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
         grid_material->SetVec4("diffuse_color", yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
         grid_material->SetVec4("specular_color", yoyo::Vec4{ 0.0, 0.0f, 0.0f, 0.0f });
 
         Entity floors = m_scene->Instantiate("floors", { 0.0f, 0.0f, 0.0f });
-        TransformComponent& floor_transform = floors.GetComponent<TransformComponent>();
 
         float root = 5;
         float dim = 16.0f;
@@ -239,10 +242,10 @@ void GameLayer::OnEnable()
                 transform.quat_rotation = yoyo::QuatFromAxisAngle({ 1, 0, 0 }, yoyo::DegToRad(-90));
 
                 MeshRendererComponent& mesh_renderer = plane.AddComponent<MeshRendererComponent>();
-                mesh_renderer.mesh = yoyo::ResourceManager::Instance().Load<yoyo::StaticMesh>("Plane");
-                mesh_renderer.material = grid_material;
+                mesh_renderer.SetMesh(yoyo::ResourceManager::Instance().Load<yoyo::StaticMesh>("Plane"));
+                mesh_renderer.SetMaterial(grid_material);
 
-                floor_transform.AddChild(plane);
+                floors.GetComponent<TransformComponent>().AddChild(plane);
             }
         }
     }
@@ -270,6 +273,11 @@ void GameLayer::OnDisable()
 
 void GameLayer::OnUpdate(float dt)
 {
+    if(m_render_packet->IsProccessed())
+    {
+        m_render_packet->Reset();
+    }
+
     // Physics System
     m_physics_world->Update(dt);
 
@@ -280,11 +288,10 @@ void GameLayer::OnUpdate(float dt)
     for (auto& id : m_scene->Registry().view<TransformComponent, MeshRendererComponent>())
     {
         Entity e{ id, m_scene };
-        TransformComponent& transform = e.GetComponent<TransformComponent>();
 
         // TODO: Move to renderable 
-        auto& mesh_renderer = e.GetComponent<MeshRendererComponent>();
-        mesh_renderer.mesh_object->model_matrix = transform.model_matrix;
+        MeshRendererComponent& mesh_renderer = e.GetComponent<MeshRendererComponent>();
+        mesh_renderer.mesh_object->model_matrix = e.GetComponent<TransformComponent>().model_matrix;
     }
 
     // Animation System
@@ -295,13 +302,30 @@ void GameLayer::OnUpdate(float dt)
         animator.animator->Update(dt);
     }
 
+    struct ProfileMetrics
+    {
+        float frame_time = 0.0f;
+        float average_time = 0.0f;
+        float min = 0.0f;
+        float max = 0.0f;
+    } profile_metrics;
+
     // Scripting System
     {
+        static ProfileMetrics profiler_metrics = {};
+        static int frames = 0;
+        yoyo::ScopedTimer profiler([&](const yoyo::ScopedTimer& timer) {
+            frames++;
+            profiler_metrics.frame_time = timer.delta;
+            profiler_metrics.min = profiler_metrics.min > timer.delta ? timer.delta : profiler_metrics.min;
+            profiler_metrics.max = profiler_metrics.max < timer.delta ? timer.delta : profiler_metrics.max;
+        });
+
         m_scripting->Update(dt);
     }
 
     // Particles
-    m_particles->Update(dt);
+    // m_particles->Update(dt);
 
     // Update camera matrices
     for (auto& id : m_scene->Registry().view<TransformComponent, CameraComponent>())
@@ -317,8 +341,6 @@ void GameLayer::OnUpdate(float dt)
     for (auto& id : m_scene->Registry().view<TransformComponent, DirectionalLightComponent>())
     {
         Entity e{ id, m_scene };
-
-        TransformComponent& transform = e.GetComponent<TransformComponent>();
         Ref<yoyo::DirectionalLight> dir_light = e.GetComponent<DirectionalLightComponent>().dir_light;
 
         // TODO: calculate base of transform
@@ -334,109 +356,39 @@ void GameLayer::OnUpdate(float dt)
 
         yoyo::Mat4x4 proj = yoyo::OrthographicProjectionMat4x4(-half_width, half_width, -half_height, half_height, -1000, 1000);
         proj[5] *= -1.0f;
-        dir_light->view_proj = proj * yoyo::LookAtMat4x4(transform.position, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
-    }
-
-    // Rendering system (send render packets)
-    // TODO: Move to scene handler system and delete static rp
-    {
-        static yoyo::RenderPacket* rp = YNEW yoyo::RenderPacket();
-        if(rp->IsProccessed())
-        {
-            rp->Reset();
-        }
-        if (m_rebuild_packet)
-        {
-            // Cameras
-            for (auto& id : m_scene->Registry().view<NewCameraComponent, CameraComponent>())
-            {
-                Entity e{ id, m_scene };
-
-                Ref<yoyo::Camera> cam = e.GetComponent<CameraComponent>().camera;
-                cam->position = e.GetComponent<TransformComponent>().position;
-                cam->UpdateCameraVectors();
-
-                rp->new_camera = cam;
-
-                bool res = e.RemoveComponent<NewCameraComponent>();
-                YASSERT(res, "Failed to remove new mesh component!");
-                break;
-            }
-
-            // Lights
-            for (auto& id : m_scene->Registry().view<NewDirectionalLightComponent, DirectionalLightComponent>())
-            {
-                Entity e{ id, m_scene };
-
-                TransformComponent& transform = e.GetComponent<TransformComponent>();
-                Ref<yoyo::DirectionalLight> dir_light = e.GetComponent<DirectionalLightComponent>().dir_light;
-
-                rp->new_dir_lights.emplace_back(dir_light);
-
-                bool res = e.RemoveComponent<NewDirectionalLightComponent>();
-                YASSERT(res, "Failed to remove new mesh component!");
-            }
-
-            // Meshes
-            for (auto& id : m_scene->Registry().view<NewMeshComponent, MeshRendererComponent>())
-            {
-                Entity e{ id, m_scene };
-
-                TransformComponent& transform = e.GetComponent<TransformComponent>();
-
-                MeshRendererComponent& mesh_renderer = e.GetComponent<MeshRendererComponent>();
-                mesh_renderer.mesh_object->mesh = mesh_renderer.mesh;
-                mesh_renderer.mesh_object->material = mesh_renderer.material;
-                mesh_renderer.mesh_object->model_matrix = transform.model_matrix;
-
-                // Update Render Packet
-                rp->new_objects.emplace_back(mesh_renderer.mesh_object);
-
-                bool res = e.RemoveComponent<NewMeshComponent>();
-                YASSERT(res, "Failed to remove new mesh component!");
-            }
-
-            m_rebuild_packet = false;
-        }
-        m_renderer_layer->SendRenderPacket(rp);
+        dir_light->view_proj = proj * yoyo::LookAtMat4x4(e.GetComponent<TransformComponent>().position, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
     }
 
     m_scene->FlushDestructionQueue();
+    m_renderer_layer->SendRenderPacket(m_render_packet);
 };
+
+static std::vector<yoyo::RenderPacket> render_packets;
+static int packet_count = 0;
 
 void GameLayer::OnMeshRendererComponentCreated(entt::basic_registry<entt::entity>&, entt::entity entity)
 {
     Entity e(entity, m_scene);
-    e.GetComponent<MeshRendererComponent>().mesh_object = CreateRef<yoyo::MeshPassObject>();
-    e.AddComponent<NewMeshComponent>().time_stamp;
 
-    m_rebuild_packet = true;
+    MeshRendererComponent& mesh_renderer = e.GetComponent<MeshRendererComponent>();
+    mesh_renderer.mesh_object = CreateRef<yoyo::MeshPassObject>();
+    mesh_renderer.mesh_object->model_matrix = e.GetComponent<TransformComponent>().model_matrix;
+
+    // Update Render Packet
+    m_render_packet->new_objects.emplace_back(mesh_renderer.mesh_object);
 }
 
 void GameLayer::OnMeshRendererComponentDestroyed(entt::basic_registry<entt::entity>&, entt::entity entity)
 {
     Entity e(entity, m_scene);
-
-    // TODO: Manage render packet and delete this static rp afterwards 
-    static yoyo::RenderPacket* rp = YNEW yoyo::RenderPacket();
-
-    // Only clear the packet if already processed
-    if(rp->IsProccessed())
-    {
-        rp->Reset();
-    }
-
-    rp->deleted_objects.push_back(e.GetComponent<MeshRendererComponent>().mesh_object);
-    m_renderer_layer->SendRenderPacket(rp);
+    m_render_packet->deleted_objects.push_back(e.GetComponent<MeshRendererComponent>().mesh_object);
 }
 
 void GameLayer::OnCameraComponentCreated(entt::basic_registry<entt::entity>&, entt::entity entity)
 {
     Entity e(entity, m_scene);
-    e.GetComponent<CameraComponent>().camera = CreateRef<yoyo::Camera>();
-    e.AddComponent<NewCameraComponent>();
-
-    m_rebuild_packet = true;
+    auto cam = e.GetComponent<CameraComponent>().camera = CreateRef<yoyo::Camera>();
+    m_render_packet->new_camera = cam;
 }
 
 void GameLayer::OnCameraComponentDestroyed(entt::basic_registry<entt::entity>&, entt::entity entity)
@@ -446,30 +398,28 @@ void GameLayer::OnCameraComponentDestroyed(entt::basic_registry<entt::entity>&, 
 void GameLayer::OnDirectionalLightComponentCreated(entt::basic_registry<entt::entity>&, entt::entity entity)
 {
     Entity e(entity, m_scene);
-    e.GetComponent<DirectionalLightComponent>().dir_light = CreateRef<yoyo::DirectionalLight>();
-
-    e.AddComponent<NewDirectionalLightComponent>();
-    m_rebuild_packet = true;
+    auto dir_light = e.GetComponent<DirectionalLightComponent>().dir_light = CreateRef<yoyo::DirectionalLight>();
+    m_render_packet->new_dir_lights.emplace_back(dir_light);
 }
 
 void GameLayer::OnDirectionalLightComponentDestroyed(entt::basic_registry<entt::entity>&, entt::entity entity)
 {
 }
 
-class Sandbox : public yoyo::Application
+class CapitalPunishment : public yoyo::Application
 {
 public:
-    Sandbox()
-        : yoyo::Application({ "Sandbox", 0, 0, 1920, 1080 })
+    CapitalPunishment()
+        : yoyo::Application({ "CapitalPunishment", 0, 0, 1920, 1080 })
     {
         PushLayer(YNEW EditorLayer(this));
         PushLayer(YNEW GameLayer(this));
     }
 
-    ~Sandbox(){}
+    ~CapitalPunishment() {}
 };
 
 yoyo::Application* CreateApplication()
 {
-    return YNEW Sandbox;
+    return YNEW CapitalPunishment;
 };

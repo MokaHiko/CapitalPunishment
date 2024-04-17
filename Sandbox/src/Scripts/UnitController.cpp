@@ -3,6 +3,7 @@
 #include <Core/Assert.h>
 #include <Math/Random.h>
 #include <Math/MatrixTransform.h>
+
 #include <Renderer/Animation.h>
 
 #include "ECS/Components/RenderableComponents.h"
@@ -11,6 +12,10 @@
 #include "Unit.h"
 #include "Projectile.h"
 #include "Turret.h"
+
+// TODO: Make projectile factories
+#include <Resource/ResourceManager.h>
+#include "ParticleSystem/Particles.h"
 
 class AnimateTransformProcess : public Process
 {
@@ -211,7 +216,6 @@ void UnitController::OnUpdate(float dt)
 
 void UnitController::BasicAttack()
 {
-	return;
 	// const auto& transform = GetComponent<TransformComponent>();
 	// const auto& view_transform = m_view.GetComponent<TransformComponent>();
 	// const yoyo::Vec3& fire_point = transform.position + (view_transform.Forward() * 2.0f);
@@ -229,24 +233,56 @@ void UnitController::BasicAttack()
 	// }
 
 	//Projectile
-	const auto& transform = GetComponent<TransformComponent>();
-	static const auto& view_transform = m_view.GetComponent<TransformComponent>();
-	const yoyo::Vec3& fire_point = transform.position + (view_transform.Forward() * 3.0f);
+	const TransformComponent& view_transform = m_view.GetComponent<TransformComponent>();
+	yoyo::Vec3 fire_point = GetComponent<TransformComponent>().position + (view_transform.Forward() * 3.0f);
+	fire_point.y += 1.0f;
 
-	float bullet_speed = 60.0f;
-	yoyo::Mat4x4 transform_matrix = yoyo::TranslationMat4x4(fire_point) * yoyo::ScaleMat4x4({0.5f, 0.5f, 0.5f});
+	float bullet_speed = 10.0f;
+	yoyo::Mat4x4 t_matrix = yoyo::TranslationMat4x4(fire_point) * yoyo::ScaleMat4x4({0.5f, 0.5f, 0.5f});
 
-	Entity bullet = Instantiate("Bullet", transform_matrix);
-	MeshRendererComponent& mesh_renderer = bullet.AddComponent<MeshRendererComponent>("Cube", "grenade_instanced_material");
+	Entity b = Instantiate("Bullet", t_matrix);
+	TransformComponent& b_t = b.GetComponent<TransformComponent>();
+	b_t.quat_rotation = view_transform.quat_rotation;
+	b_t.UpdateModelMatrix();
 
-	psx::RigidBodyComponent& rb = bullet.AddComponent<psx::RigidBodyComponent>();
-	rb.SetUseGravity(false);
+	MeshRendererComponent& mesh_renderer = b.AddComponent<MeshRendererComponent>();
+	mesh_renderer.SetMesh(yoyo::ResourceManager::Instance().Load<yoyo::StaticMesh>("Cube"));
+	mesh_renderer.SetMaterial(yoyo::ResourceManager::Instance().Load<yoyo::Material>("grenade_instanced_material"));
+
+	psx::RigidBodyComponent& rb = b.AddComponent<psx::RigidBodyComponent>();
 	rb.LockRotationAxis({1,1,1});
+	rb.SetUseGravity(false);
 
-	psx::BoxColliderComponent& col = bullet.AddComponent<psx::BoxColliderComponent>(yoyo::Vec3{0.5f, 0.5f, 0.5f});
+	// auto& particles = b.AddComponent<ParticleSystemComponent>();
+	// particles.SetMaxParticles(32);
+	// particles.SetLifeTimeRange(0, 0.4f);
+	// particles.SetEmissionRate(3);
 
-	bullet.AddComponent<Projectile>(bullet);
-	yoyo::Vec3 impulse = view_transform.Forward() * bullet_speed;
+	// yoyo::Vec3 p_v = { b.GetComponent<TransformComponent>().Forward() * bullet_speed};
+	// p_v.y = 2.0f;
+	// particles.SetLinearVelocityRange(p_vj, p_v);
+	// particles.SetScaleRange(0.15f, 1.5f);A
+
+	auto root_id = GetScene()->Root().GetComponent<TransformComponent>().self.Id();
+	const TransformComponent& root_transform = GetScene()->Root().GetComponent<TransformComponent>();
+
+	if (GetScene()->Root().IsValid())
+	{
+		auto new_root_id = GetScene()->Root().GetComponent<TransformComponent>().self.Id();
+		if (new_root_id != root_id)
+		{
+			static bool run_once = [&]()
+			{
+				YINFO("name: %s", GetScene()->Root().GetComponent<TagComponent>().tag.c_str());
+				YINFO("root change self: %d", new_root_id);
+				return true;
+			}();
+		}
+	}
+
+	//psx::BoxColliderComponent& col = b.AddComponent<psx::BoxColliderComponent>(yoyo::Vec3{0.5f, 0.5f, 0.5f});
+	b.AddComponent<Projectile>(b);
+	yoyo::Vec3 impulse = b.GetComponent<TransformComponent>().Forward() * bullet_speed;
 	rb.AddForce(impulse, psx::ForceMode::Impulse);
 }
 
@@ -262,7 +298,9 @@ void UnitController::AltAttack()
 	yoyo::Mat4x4 transform_matrix = yoyo::TranslationMat4x4(fire_point) * yoyo::ScaleMat4x4({1.0f, 1.0f, 1.0f});
 
 	Entity bullet = Instantiate("Turret", transform_matrix);
-	MeshRendererComponent& mesh_renderer = bullet.AddComponent<MeshRendererComponent>("Cube", "grenade_instanced_material");
+	MeshRendererComponent& mesh_renderer = bullet.AddComponent<MeshRendererComponent>();
+	mesh_renderer.SetMesh(yoyo::ResourceManager::Instance().Load<yoyo::StaticMesh>("Cube"));
+	mesh_renderer.SetMaterial(yoyo::ResourceManager::Instance().Load<yoyo::Material>("grenade_instanced_material"));
 
 	psx::RigidBodyComponent& rb = bullet.AddComponent<psx::RigidBodyComponent>();
 	//rb.SetUseGravity(false);
@@ -271,7 +309,6 @@ void UnitController::AltAttack()
 	//psx::BoxColliderComponent& col = bullet.AddComponent<psx::BoxColliderComponent>(yoyo::Vec3{0.25f, 0.25f, 0.25f});
 	psx::BoxColliderComponent& col = bullet.AddComponent<psx::BoxColliderComponent>();
 
-	//bullet.AddComponent<Projectile>(bullet);
 	bullet.AddComponent<Turret>(bullet);
 	yoyo::Vec3 impulse = view_transform.Forward() * bullet_speed;
 	impulse.y = 20.0f;

@@ -59,8 +59,7 @@ private:
     Ref<ParticleSystemManager> m_particles;
 
     Scene* m_scene;
-
-    bool m_rebuild_packet = true;
+    yoyo::RenderPacket* m_render_packet;
 
     yoyo::RendererLayer* m_renderer_layer;
     yoyo::Application* m_app;

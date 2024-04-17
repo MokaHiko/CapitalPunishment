@@ -166,7 +166,7 @@ namespace psx
 		{
 			yoyo::ScopedTimer profiler([&](const yoyo::ScopedTimer& timer) {
 				// YINFO("Physics time %.5fms", timer.delta * 1000.0f);
-				});
+			});
 
 			if(!m_scene->simulate(1.0f / 60.0f))
 			{
@@ -181,10 +181,11 @@ namespace psx
 			for (auto entity : GetScene()->Registry().group<TransformComponent, RigidBodyComponent>())
 			{
 				Entity e(entity, GetScene());
-				TransformComponent& transform = e.GetComponent<TransformComponent>();
 				const RigidBodyComponent& rb = e.GetComponent<RigidBodyComponent>();
 
+				// Update transforms
 				PxTransform t = rb.actor->getGlobalPose();
+				TransformComponent& transform = e.GetComponent<TransformComponent>();
 				transform.position = { t.p.x, t.p.y, t.p.z };
 				transform.quat_rotation = { t.q.x, t.q.y, t.q.z, t.q.w };
 			}
@@ -196,9 +197,9 @@ namespace psx
 		using namespace physx;
 
 		const TransformComponent& transform = e.GetComponent<TransformComponent>();
+		PxTransform t = {{transform.position.x, transform.position.y, transform.position.z},
+						{transform.quat_rotation.x, transform.quat_rotation.y, transform.quat_rotation.z, transform.quat_rotation.w }};
 
-		PxQuat q = { transform.quat_rotation.x, transform.quat_rotation.y, transform.quat_rotation.z, transform.quat_rotation.w };
-		PxTransform t = { transform.position.x, transform.position.y, transform.position.z, q };
 
 		rb.actor = m_physics->createRigidDynamic(t);
 		rb.actor->userData = (void*)(uint64_t)(e.Id());
@@ -211,7 +212,7 @@ namespace psx
 	{
 		using namespace physx;
 		const TransformComponent& transform = e.GetComponent<TransformComponent>();
-		PxTransform t = { transform.position.x, transform.position.y, transform.position.z };
+		PxTransform t = { {transform.position.x, transform.position.y, transform.position.z}, PxQuat{transform.quat_rotation.x, transform.quat_rotation.y, transform.quat_rotation.z, transform.quat_rotation.w}};
 
 		// Implicit release of shapes
 		rb.actor->release();

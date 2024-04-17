@@ -9,6 +9,8 @@ layout(location = 0) out vec3 v_position_world_space;
 layout(location = 1) out vec3 v_color;
 layout(location = 2) out vec2 v_uv;
 
+layout(location = 3) out vec4 v_particle_color;
+
 struct DirectionalLight {
   mat4 view_proj;
 
@@ -19,6 +21,7 @@ struct DirectionalLight {
 struct ObjectData 
 {
 	mat4 model_matrix;
+  vec4 color;
 };
 
 layout(set = 0, binding = 0) uniform SceneData {
@@ -53,6 +56,7 @@ void main()
 	v_color = color;
 
 	v_uv = uv;
+  v_particle_color = objects[object_data_index].color;
 
 	gl_Position = proj * view * vec4(v_position_world_space, 1.0f);
 }

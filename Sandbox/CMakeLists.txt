@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21.0)
-project(Sandbox VERSION 0.1.0 LANGUAGES C CXX)
+project(CapitalPunishment VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -44,14 +44,11 @@ add_executable(${PROJECT_NAME}
 	src/ParticleSystem/Particles.h
 	src/ParticleSystem/Particles.cpp
 
-	src/Sandbox.h
-	src/Sandbox.cpp
+	src/CapitalPunishment.h
+	src/CapitalPunishment.cpp
 
 	src/Scripts/CameraController.h
 	src/Scripts/CameraController.cpp
-
-	src/Scripts/Destructable.h
-	src/Scripts/Destructable.cpp
 
 	src/Scripts/Sun.h
 	src/Scripts/Sun.cpp
@@ -144,7 +141,8 @@ add_custom_target(copy_assets ALL
 	COMMENT "Copying resources into bin and binary folder."
 	COMMAND cmd /c ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/shaders/compile_shaders.bat
 	COMMENT "Compiling shaders.")
-add_dependencies(${PROJECT_NAME} copy_assets)
+
+# add_dependencies(${PROJECT_NAME} copy_assets)
 
 add_custom_target(copy_physx_binaries ALL
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
