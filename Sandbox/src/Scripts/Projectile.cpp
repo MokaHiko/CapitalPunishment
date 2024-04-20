@@ -11,6 +11,7 @@ Projectile::~Projectile()
 
 void Projectile::OnStart() 
 {
+	m_life_time = 1.0f;
 }
 
 void Projectile::OnUpdate(float dt) {
@@ -34,9 +35,5 @@ void Projectile::OnCollisionEnter(const psx::Collision& col) {
 
 void Projectile::Die() 
 {
-	//Destroy();
-	if(!ToDestroy())
-	{
-		QueueDestroy();
-	}
+	QueueDestroy();
 }

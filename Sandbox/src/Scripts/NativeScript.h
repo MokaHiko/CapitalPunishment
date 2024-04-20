@@ -33,12 +33,12 @@ public:
         :System<NativeScriptComponent>(scene), m_physics_world(physics_world){}
     virtual ~ScriptingSystem() = default;
 
-    virtual void Init() override;
-    virtual void Shutdown() override;
-    virtual void Update(float dt) override;
+    virtual void OnInit() override;
+    virtual void OnShutdown() override;
+    virtual void OnUpdate(float dt) override;
 
-    virtual void OnComponentCreated(Entity e, NativeScriptComponent& native_script) override;
-    virtual void OnComponentDestroyed(Entity e, NativeScriptComponent& native_script) override;
+    virtual void OnComponentCreated(Entity e, NativeScriptComponent* native_script) override;
+    virtual void OnComponentDestroyed(Entity e, NativeScriptComponent* native_script) override;
 
     void OnScriptCreatedCallback(ScriptableEntity* script);
     void OnScriptDestroyedCallback(ScriptableEntity* script);

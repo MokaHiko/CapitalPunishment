@@ -29,11 +29,20 @@
 #include "SceneGraph/SceneGraph.h"
 #include "Physics/Physics3D.h"
 #include "ParticleSystem/Particles.h"
+#include "RenderScene/RenderScene.h"
 
 #include "Editor/EditorLayer.h"
 
 // Move to animation system
 #include "Renderer/Animation.h"
+
+struct ProfileMetrics
+{
+    float frame_time = 0.0f;
+    float average_time = 0.0f;
+    float min = 0.0f;
+    float max = 0.0f;
+} profile_metrics;
 
 GameLayer::GameLayer(yoyo::Application* app)
     :m_app(app) {}
@@ -60,25 +69,17 @@ void GameLayer::OnDetatch()
 void GameLayer::OnEnable()
 {
     YASSERT(m_app != nullptr, "Invalid application handle!");
-    m_renderer_layer = m_app->FindLayer<yoyo::RendererLayer>();
+    yoyo::RendererLayer* renderer_layer = m_app->FindLayer<yoyo::RendererLayer>();
 
-    m_particles = CreateRef<ParticleSystemManager>(m_scene, m_renderer_layer);
+    m_render_scene = CreateRef<RenderSceneSystem>(m_scene, renderer_layer);
+    m_render_scene->Init();
+
+    m_particles = CreateRef<ParticleSystemManager>(m_scene, renderer_layer);
     m_particles->Init();
-
-    m_scene->Registry().on_construct<CameraComponent>().connect<&GameLayer::OnCameraComponentCreated>(this);
-    m_scene->Registry().on_destroy<CameraComponent>().connect<&GameLayer::OnCameraComponentDestroyed>(this);
-
-    m_scene->Registry().on_construct<DirectionalLightComponent>().connect<&GameLayer::OnDirectionalLightComponentCreated>(this);
-    m_scene->Registry().on_destroy<DirectionalLightComponent>().connect<&GameLayer::OnDirectionalLightComponentDestroyed>(this);
-
-    m_scene->Registry().on_construct<MeshRendererComponent>().connect<&GameLayer::OnMeshRendererComponentCreated>(this);
-    m_scene->Registry().on_destroy<MeshRendererComponent>().connect<&GameLayer::OnMeshRendererComponentDestroyed>(this);
 
     m_scene_graph->Init();
     m_physics_world->Init();
     m_scripting->Init();
-
-    m_render_packet = new yoyo::RenderPacket();
 
     // Load assets
     Ref<yoyo::Shader> default_lit = yoyo::ResourceManager::Instance().Load<yoyo::Shader>("lit_shader");
@@ -192,7 +193,7 @@ void GameLayer::OnEnable()
         Entity light = m_scene->Instantiate("light", { 100.0f, 60.0f, 5.0f });
         Ref<yoyo::DirectionalLight> dir_light = light.AddComponent<DirectionalLightComponent>().dir_light;
         dir_light->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-        dir_light->direction = yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f } * -1.0f;
+        dir_light->direction = yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f } *-1.0f;
 
         auto& mesh_renderer = light.AddComponent<MeshRendererComponent>();
         mesh_renderer.SetMesh(yoyo::ResourceManager::Instance().Load<yoyo::StaticMesh>("Cube"));
@@ -203,7 +204,8 @@ void GameLayer::OnEnable()
 
     // Set up scene
     auto camera = m_scene->Instantiate("camera", { 0.0f, 50.0f, 50.0f });
-    camera.AddComponent<CameraComponent>().camera->SetType(yoyo::CameraType::Orthographic);
+    // camera.AddComponent<CameraComponent>().camera->SetType(yoyo::CameraType::Orthographic);
+    camera.AddComponent<CameraComponent>().camera->SetType(yoyo::CameraType::Perspective);
     camera.AddComponent<CameraControllerComponent>(camera);
 
     // Village Manager
@@ -218,7 +220,7 @@ void GameLayer::OnEnable()
     }
 
     // Plane
-    {
+    if(true){
         Ref<yoyo::Material> grid_material = yoyo::Material::Create(default_lit_instanced, "grid_material");
         Ref<yoyo::Texture> grid_texture = yoyo::ResourceManager::Instance().Load<yoyo::Texture>("assets/textures/prototype_512x512_white.yo");
         grid_texture->SetSamplerType(yoyo::TextureSamplerType::Linear);
@@ -253,36 +255,36 @@ void GameLayer::OnEnable()
 
 void GameLayer::OnDisable()
 {
-    m_renderer_layer = nullptr;
-
-    m_scene->Registry().on_construct<CameraComponent>().disconnect<&GameLayer::OnCameraComponentCreated>(this);
-    m_scene->Registry().on_destroy<CameraComponent>().disconnect<&GameLayer::OnCameraComponentDestroyed>(this);
-
-    m_scene->Registry().on_construct<DirectionalLightComponent>().disconnect<&GameLayer::OnDirectionalLightComponentCreated>(this);
-    m_scene->Registry().on_destroy<DirectionalLightComponent>().disconnect<&GameLayer::OnDirectionalLightComponentDestroyed>(this);
-
-    m_scene->Registry().on_construct<MeshRendererComponent>().disconnect<&GameLayer::OnMeshRendererComponentCreated>(this);
-    m_scene->Registry().on_destroy<MeshRendererComponent>().disconnect<&GameLayer::OnMeshRendererComponentDestroyed>(this);
-
     // Shutdown Systems
     m_particles->Shutdown();
     m_scripting->Shutdown();
     m_physics_world->Shutdown();
     m_scene_graph->Shutdown();
+    m_render_scene->Shutdown();
 };
 
 void GameLayer::OnUpdate(float dt)
 {
-    if(m_render_packet->IsProccessed())
+    // Physics System
     {
-        m_render_packet->Reset();
+#ifdef Y_DEBUG
+        yoyo::ScopedTimer timer([&](const yoyo::ScopedTimer& timer) {
+            m_app->d_layer_profiles["Game [PhysicsWorld]"] = timer.delta;
+            });
+#endif
+        m_physics_world->Update(dt);
     }
 
-    // Physics System
-    m_physics_world->Update(dt);
 
     // Scene Graph
-    m_scene_graph->Update(dt);
+    {
+#ifdef Y_DEBUG
+        yoyo::ScopedTimer timer([&](const yoyo::ScopedTimer& timer) {
+            m_app->d_layer_profiles["Game [Scene Graph]"] = timer.delta;
+            });
+#endif
+        m_scene_graph->Update(dt);
+    }
 
     // Update Render Scene Mesh
     for (auto& id : m_scene->Registry().view<TransformComponent, MeshRendererComponent>())
@@ -302,109 +304,32 @@ void GameLayer::OnUpdate(float dt)
         animator.animator->Update(dt);
     }
 
-    struct ProfileMetrics
-    {
-        float frame_time = 0.0f;
-        float average_time = 0.0f;
-        float min = 0.0f;
-        float max = 0.0f;
-    } profile_metrics;
-
     // Scripting System
     {
-        static ProfileMetrics profiler_metrics = {};
-        static int frames = 0;
-        yoyo::ScopedTimer profiler([&](const yoyo::ScopedTimer& timer) {
-            frames++;
-            profiler_metrics.frame_time = timer.delta;
-            profiler_metrics.min = profiler_metrics.min > timer.delta ? timer.delta : profiler_metrics.min;
-            profiler_metrics.max = profiler_metrics.max < timer.delta ? timer.delta : profiler_metrics.max;
-        });
-
+#ifdef Y_DEBUG
+        yoyo::ScopedTimer timer([&](const yoyo::ScopedTimer& timer) {
+            m_app->d_layer_profiles["Game [Scripting]"] = timer.delta;
+            });
+#endif
         m_scripting->Update(dt);
+        m_scene->FlushDestructionQueue();
     }
 
-    // Particles
-    // m_particles->Update(dt);
 
-    // Update camera matrices
-    for (auto& id : m_scene->Registry().view<TransformComponent, CameraComponent>())
     {
-        Entity e{ id, m_scene };
-
-        Ref<yoyo::Camera> cam = e.GetComponent<CameraComponent>().camera;
-        cam->position = e.GetComponent<TransformComponent>().position;
-        cam->UpdateCameraVectors();
+#ifdef Y_DEBUG
+        yoyo::ScopedTimer timer([&](const yoyo::ScopedTimer& timer) {
+            m_app->d_layer_profiles["Game [Particles]"] = timer.delta;
+        });
+#endif
+        m_particles->Update(dt);
     }
 
-    // Lights
-    for (auto& id : m_scene->Registry().view<TransformComponent, DirectionalLightComponent>())
-    {
-        Entity e{ id, m_scene };
-        Ref<yoyo::DirectionalLight> dir_light = e.GetComponent<DirectionalLightComponent>().dir_light;
-
-        // TODO: calculate base of transform
-        // yoyo::Vec3 front = Normalize(dir_light.direction);
-        // yoyo::Vec3 right = Normalize(Cross(front, { 0.0f, 1.0f, 0.0f }));
-        // yoyo::Vec3 up = Normalize(Cross(right, front));
-
-        const yoyo::ApplicationSettings& settings = m_app->Settings();
-        float width = 16 * 6.0f;
-        float height = 9 * 6.0f;
-        float half_width = static_cast<float>(width);
-        float half_height = static_cast<float>(height);
-
-        yoyo::Mat4x4 proj = yoyo::OrthographicProjectionMat4x4(-half_width, half_width, -half_height, half_height, -1000, 1000);
-        proj[5] *= -1.0f;
-        dir_light->view_proj = proj * yoyo::LookAtMat4x4(e.GetComponent<TransformComponent>().position, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
-    }
-
-    m_scene->FlushDestructionQueue();
-    m_renderer_layer->SendRenderPacket(m_render_packet);
+    m_render_scene->Update(dt);
 };
 
 static std::vector<yoyo::RenderPacket> render_packets;
 static int packet_count = 0;
-
-void GameLayer::OnMeshRendererComponentCreated(entt::basic_registry<entt::entity>&, entt::entity entity)
-{
-    Entity e(entity, m_scene);
-
-    MeshRendererComponent& mesh_renderer = e.GetComponent<MeshRendererComponent>();
-    mesh_renderer.mesh_object = CreateRef<yoyo::MeshPassObject>();
-    mesh_renderer.mesh_object->model_matrix = e.GetComponent<TransformComponent>().model_matrix;
-
-    // Update Render Packet
-    m_render_packet->new_objects.emplace_back(mesh_renderer.mesh_object);
-}
-
-void GameLayer::OnMeshRendererComponentDestroyed(entt::basic_registry<entt::entity>&, entt::entity entity)
-{
-    Entity e(entity, m_scene);
-    m_render_packet->deleted_objects.push_back(e.GetComponent<MeshRendererComponent>().mesh_object);
-}
-
-void GameLayer::OnCameraComponentCreated(entt::basic_registry<entt::entity>&, entt::entity entity)
-{
-    Entity e(entity, m_scene);
-    auto cam = e.GetComponent<CameraComponent>().camera = CreateRef<yoyo::Camera>();
-    m_render_packet->new_camera = cam;
-}
-
-void GameLayer::OnCameraComponentDestroyed(entt::basic_registry<entt::entity>&, entt::entity entity)
-{
-}
-
-void GameLayer::OnDirectionalLightComponentCreated(entt::basic_registry<entt::entity>&, entt::entity entity)
-{
-    Entity e(entity, m_scene);
-    auto dir_light = e.GetComponent<DirectionalLightComponent>().dir_light = CreateRef<yoyo::DirectionalLight>();
-    m_render_packet->new_dir_lights.emplace_back(dir_light);
-}
-
-void GameLayer::OnDirectionalLightComponentDestroyed(entt::basic_registry<entt::entity>&, entt::entity entity)
-{
-}
 
 class CapitalPunishment : public yoyo::Application
 {

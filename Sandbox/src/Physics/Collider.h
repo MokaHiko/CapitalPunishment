@@ -12,8 +12,8 @@ namespace psx
         BoxColliderSystem(Scene* scene, PhysicsWorld& world);
         virtual ~BoxColliderSystem();
 
-        virtual void OnComponentCreated(Entity e, BoxColliderComponent& box_collider) override;
-        virtual void OnComponentDestroyed(Entity e, BoxColliderComponent& box_collider) override;
+        virtual void OnComponentCreated(Entity e, BoxColliderComponent* box_collider) override;
+        virtual void OnComponentDestroyed(Entity e, BoxColliderComponent* box_collider) override;
     private:
         PhysicsWorld& m_world;
     };

@@ -14,12 +14,12 @@ public:
 
     virtual ~SceneGraph() = default;
 
-    virtual void Init() override;
-    virtual void Shutdown() override;
-    virtual void Update(float dt) override;
+    virtual void OnInit() override;
+    virtual void OnShutdown() override;
+    virtual void OnUpdate(float dt) override;
 
-    virtual void OnComponentCreated(Entity e, TransformComponent& transform) override;
-    virtual void OnComponentDestroyed(Entity e, TransformComponent& transform) override;
+    virtual void OnComponentCreated(Entity e, TransformComponent* component) override;
+    virtual void OnComponentDestroyed(Entity e, TransformComponent* component) override;
 private:
     void RecursiveUpdate(TransformComponent& node);
     void RecursiveUpdate(Entity e);

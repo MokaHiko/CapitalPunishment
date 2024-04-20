@@ -6,16 +6,16 @@
 #include "Core/Application.h"
 #include "ECS/Entity.h "
 
-void SceneGraph::Init()
+void SceneGraph::OnInit()
 {
 }
 
-void SceneGraph::Shutdown()
+void SceneGraph::OnShutdown()
 {
 	// Unsubscribe
 }
 
-void SceneGraph::Update(float dt)
+void SceneGraph::OnUpdate(float dt)
 {
 	Entity e{ 0, GetScene() };
 	TransformComponent& transform = e.GetComponent<TransformComponent>();
@@ -23,13 +23,13 @@ void SceneGraph::Update(float dt)
 	//RecursiveUpdate(GetScene()->Root());
 }
 
-void SceneGraph::OnComponentCreated(Entity e, TransformComponent& transform)
+void SceneGraph::OnComponentCreated(Entity e, TransformComponent* transform)
 {
 	// Define self
 	e.GetComponent<TransformComponent>().self = e;
 }
 
-void SceneGraph::OnComponentDestroyed(Entity e, TransformComponent& transform)
+void SceneGraph::OnComponentDestroyed(Entity e, TransformComponent* transform)
 {
 	if (auto parent = e.GetComponent<TransformComponent>().parent)
 	{

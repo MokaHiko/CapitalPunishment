@@ -106,10 +106,11 @@ void VillageManagerComponent::SpawnVillager(const VillagerProps& props)
 	villager.AddComponent<psx::RigidBodyComponent>().LockRotationAxis({1,0,1});
 	villager.AddComponent<psx::BoxColliderComponent>();
 
+	// Dust
+
 	villager.AddComponent<Unit>(villager);
 	villager.AddComponent<UnitController>(villager);
 	villager.AddComponent<VillagerComponent>(villager);
-
 	m_villager_count++;
 }
 
@@ -118,7 +119,6 @@ void VillageManagerComponent::SpawnEnemy()
 	static auto villager_model = yoyo::ResourceManager::Instance().Load<yoyo::Model>("assets/models/Humanoid.yo");
 	static auto skinned_villager_material = yoyo::ResourceManager::Instance().Load<yoyo::Material>("skinned_people_material");
 
-	//auto villager = Instantiate("enemy_villager", { 10.0f, 0.0f, 0.0f });
 	auto villager = Instantiate("enemy_villager", { pos_generator.Next(), 0.0f, pos_generator.Next() });
 	villager.GetComponent<TransformComponent>().scale *= 0.05f;
 
@@ -150,7 +150,7 @@ void VillageManagerComponent::SpawnEnemy()
 
 	villager.AddComponent<Unit>(villager).GetMovementStats().ms *= 0.80f;
 	villager.AddComponent<UnitController>(villager);
-	villager.AddComponent<Enemy>(villager);
+	//villager.AddComponent<Enemy>(villager);
 }
 
 void VillageManagerComponent::SpawnMutant()

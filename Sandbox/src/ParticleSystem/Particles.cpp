@@ -1,6 +1,8 @@
 #include "Particles.h"
 #include "ECS/Components/Components.h"
 
+#include <thread>
+
 #include <Renderer/Shader.h>
 #include <Renderer/Material.h>
 
@@ -29,6 +31,12 @@ const std::vector<yoyo::Particle>& ParticleSystemComponent::GetParticles() const
 const uint32_t ParticleSystemComponent::GetMaxParticles() const { return m_particle_system->GetMaxParticles(); }
 
 const uint32_t ParticleSystemComponent::GetParticlesAlive() const { return m_particle_system->GetParticlesAlive(); }
+
+void ParticleSystemComponent::SetExplosiveness(float explosiveness)
+{
+	YASSERT(explosiveness <= 1.0f && explosiveness > 0, "Explosivness is value between 0.0f - 1.0f");
+	m_particle_system->SetParticlesAlive(m_particle_system->GetMaxParticles() * explosiveness);
+}
 
 void ParticleSystemComponent::SetMaxParticles(uint32_t size)
 {
@@ -88,6 +96,7 @@ const std::pair<float, float>& ParticleSystemComponent::GetLifeTimeRange() const
 
 void ParticleSystemComponent::SetLifeTimeRange(float min, float max)
 {
+	// TODO: Dirty rebuild if not yet generated
 	m_particle_system->life_span_range = { min, max };
 }
 
@@ -136,14 +145,19 @@ void ParticleSystemComponent::AddMaterial(Ref<yoyo::Material> material) {
 	m_materials.push_back(material);
 }
 
-void ParticleSystemManager::Init()
+void ParticleSystemManager::OnInit()
 {
+	m_render_packet = YNEW yoyo::RenderPacket;
+	m_render_packet->ToggleAutoReset(true);
+
 	Ref<yoyo::Shader> unlit_particle_shader = yoyo::ResourceManager::Instance().Load<yoyo::Shader>("unlit_particle_instanced_shader");
+
 	Ref<yoyo::Material> particle_instanced_material = yoyo::Material::Create(unlit_particle_shader, "default_particle_material");
+	particle_instanced_material->SetTexture(yoyo::MaterialTextureType::MainTexture, yoyo::ResourceManager::Instance().Load<yoyo::Texture>("assets/textures/smoke.yo"));
 	particle_instanced_material->ToggleCastShadows(false);
 	particle_instanced_material->ToggleReceiveShadows(false);
 
-	particle_instanced_material->SetTexture(yoyo::MaterialTextureType::MainTexture, yoyo::ResourceManager::Instance().Load<yoyo::Texture>("assets/textures/white.yo"));
+	//particle_instanced_material->SetTexture(yoyo::MaterialTextureType::MainTexture, yoyo::ResourceManager::Instance().Load<yoyo::Texture>("assets/textures/white.yo"));
 	particle_instanced_material->SetColor(yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
 	particle_instanced_material->SetVec4("diffuse_color", yoyo::Vec4{ 1.0f, 1.0f, 1.0f, 1.0f });
 	particle_instanced_material->SetVec4("specular_color", yoyo::Vec4{ 1.0, 1.0f, 1.0f, 1.0f });
@@ -160,11 +174,12 @@ void ParticleSystemManager::Init()
 	};
 }
 
-void ParticleSystemManager::Shutdown()
+void ParticleSystemManager::OnShutdown()
 {
+	YDELETE m_render_packet;
 }
 
-void ParticleSystemManager::Update(float dt)
+void ParticleSystemManager::OnUpdate(float dt)
 {
 	// Remove camera rotation for billboard particles
 	yoyo::Mat4x4  transpose_view = {};
@@ -191,19 +206,9 @@ void ParticleSystemManager::Update(float dt)
 		particle_system_component.m_particle_system->Update(dt);
 		uint32_t particle_count = particle_system_component.GetParticlesAlive();
 
-		// Create renderables for new particles
-		if(particle_count - prev_particle_count > 0)
+		// Send renderables for new particles
+		if (particle_count - prev_particle_count > 0)
 		{
-			//YINFO("%d new particles", particle_count - prev_particle_count);
-
-			// TODO: Delete Render packet
-			static yoyo::RenderPacket* packet = YNEW yoyo::RenderPacket;
-			if (packet->IsProccessed())
-			{
-				packet->Reset();
-			}
-
-			// Add new particles renderables
 			for (uint32_t i = prev_particle_count; i < particle_count; i++)
 			{
 				if (particle_system_component.IsBillBoard())
@@ -217,25 +222,29 @@ void ParticleSystemManager::Update(float dt)
 					renderable_object->model_matrix =
 						transpose_view *
 						yoyo::TranslationMat4x4(particles[i].position) *
-						yoyo::RotateEulerMat4x4(particles[i].rotation) *
+						yoyo::TransposeMat4x4(yoyo::QuatToMat4x4(yoyo::QuatFromAxisAngle(yoyo::Vec3{0.0f, 0.0f, 1.0f}, particles[i].rotation.z))) *
 						yoyo::ScaleMat4x4(particles[i].scale);
 					renderable_object->color = particles[i].color;
 				}
-				else 
+				else
 				{
 					auto& renderable_object = particle_system_component.m_particle_renderable_objects[i];
 					renderable_object->model_matrix = transform.model_matrix * yoyo::TranslationMat4x4(particles[i].position);
 				}
-
-				packet->new_objects.push_back(particle_system_component.m_particle_renderable_objects[i]);
+				m_render_packet->new_objects.push_back(particle_system_component.m_particle_renderable_objects[i]);
 			}
-
-			m_renderer_layer->SendRenderPacket(packet);
 		}
 
 		// Update particle renderable properties
 		for (int i = 0; i < particle_system_component.GetParticlesAlive(); i++)
 		{
+			const auto& particle = particle_system_component.GetParticles()[i];
+			if(particle.time_alive >= particle.life_span) 
+			{
+				m_render_packet->deleted_objects.push_back(particle_system_component.m_particle_renderable_objects[i]);
+				continue;
+			}
+
 			if (particle_system_component.IsBillBoard())
 			{
 				// Local
@@ -247,7 +256,7 @@ void ParticleSystemManager::Update(float dt)
 				renderable_object->model_matrix =
 					transpose_view *
 					yoyo::TranslationMat4x4(particles[i].position) *
-					yoyo::RotateEulerMat4x4(particles[i].rotation) *
+					yoyo::TransposeMat4x4(yoyo::QuatToMat4x4(yoyo::QuatFromAxisAngle(yoyo::Vec3{0.0f, 0.0f, 1.0f}, particles[i].rotation.z))) *
 					yoyo::ScaleMat4x4(particles[i].scale);
 				renderable_object->color = particles[i].color;
 			}
@@ -258,9 +267,11 @@ void ParticleSystemManager::Update(float dt)
 			}
 		}
 	}
+
+	m_renderer_layer->SendRenderPacket(m_render_packet);
 }
 
-void ParticleSystemManager::OnComponentCreated(Entity entity, ParticleSystemComponent& particle_system_component)
+void ParticleSystemManager::OnComponentCreated(Entity entity, ParticleSystemComponent* particle_system_component)
 {
 	Entity e(entity, GetScene());
 
@@ -272,44 +283,51 @@ void ParticleSystemManager::OnComponentCreated(Entity entity, ParticleSystemComp
 
 	const TransformComponent& transform = e.GetComponent<TransformComponent>();
 
-	// Allocate particle system
-	particle_system_component.m_particle_system = yoyo::ParticleSystem::Create("");
-	particle_system_component.SetMaxParticles(128);
+	particle_system_component->m_particle_system = yoyo::ParticleSystem::Create("");
 
+	// TODO: Move to Set Max Particles / Regenerate particles
+
+	// Allocate particles
+	particle_system_component->SetMaxParticles(128);
 	Ref<yoyo::StaticMesh> quad = yoyo::ResourceManager::Instance().Load<yoyo::StaticMesh>("particle_quad");
 	Ref<yoyo::Material> material = nullptr;
-	if (particle_system_component.m_materials.empty())
+	if (particle_system_component->m_materials.empty())
 	{
-		particle_system_component.m_materials.push_back(yoyo::ResourceManager::Instance().Load<yoyo::Material>("default_particle_material"));
+		particle_system_component->m_materials.push_back(yoyo::ResourceManager::Instance().Load<yoyo::Material>("default_particle_material"));
 	}
-	material = particle_system_component.m_materials[0];
+	material = particle_system_component->m_materials[0];
 
 	// Instanced
 	{
 		// Pre create all renderable objects
-		particle_system_component.m_particle_renderable_objects.resize(particle_system_component.GetMaxParticles());
-		for (int i = 0; i < particle_system_component.m_particle_renderable_objects.size(); i++)
+		particle_system_component->m_particle_renderable_objects.resize(particle_system_component->GetMaxParticles());
+		for (int i = 0; i < particle_system_component->m_particle_renderable_objects.size(); i++)
 		{
-			particle_system_component.m_particle_renderable_objects[i] = CreateRef<yoyo::MeshPassObject>();
-			particle_system_component.m_particle_renderable_objects[i]->mesh = quad;
-			particle_system_component.m_particle_renderable_objects[i]->material = material;
+			particle_system_component->m_particle_renderable_objects[i] = CreateRef<yoyo::MeshPassObject>();
+			particle_system_component->m_particle_renderable_objects[i]->mesh = quad;
+			particle_system_component->m_particle_renderable_objects[i]->material = material;
 		}
 	}
 
 	// Batched
 }
 
-void ParticleSystemManager::OnComponentDestroyed(Entity e, ParticleSystemComponent& particle_system_component)
+void ParticleSystemManager::OnComponentDestroyed(Entity e, ParticleSystemComponent* particle_system_component)
 {
-	// TODO: Delete render packet
-	yoyo::RenderPacket* packet = new yoyo::RenderPacket;
-	for (auto renderable : particle_system_component.m_particle_renderable_objects)
+	// for (int i = 0; i < particle_system_component->GetParticlesAlive(); i++)
+	// {
+	// 	auto renderable = particle_system_component->m_particle_renderable_objects[i];
+	// 	if (renderable->Valid())
+	// 	{
+	// 		m_render_packet->deleted_objects.push_back(renderable);
+	// 	}
+	// }
+
+	for(auto& renderable : particle_system_component->m_particle_renderable_objects)
 	{
-		if(renderable->Valid())
+		if (renderable->Valid())
 		{
-			packet->deleted_objects.push_back(renderable);
+			m_render_packet->deleted_objects.push_back(renderable);
 		}
 	}
-
-	m_renderer_layer->SendRenderPacket(packet);
 }

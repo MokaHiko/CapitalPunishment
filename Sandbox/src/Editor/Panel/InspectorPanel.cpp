@@ -508,5 +508,5 @@ void InspectorPanel::DrawComponents()
 
 		ImGui::DragFloat("Pitch", &camera_component.pitch);
 		ImGui::DragFloat("Yaw", &camera_component.yaw);
-		});
+	});
 }

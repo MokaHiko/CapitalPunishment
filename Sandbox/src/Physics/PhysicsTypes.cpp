@@ -1,4 +1,5 @@
 #include "PhysicsTypes.h"
+#include <Core/Log.h>
 
 namespace psx
 {
@@ -76,6 +77,7 @@ namespace psx
 
 		if(!actor)
 		{
+			YWARN("Velocity Set Failed. Actor was not yet created!");
 			return;
 		}
 

@@ -15,7 +15,7 @@ public:
     virtual void Die();
 private:
     float m_time_elapsed = 0.0f;
-    float m_life_time = 2.0f;
+    float m_life_time = 5.0f;
 };
 
 

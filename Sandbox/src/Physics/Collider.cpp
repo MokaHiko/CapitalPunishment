@@ -14,7 +14,7 @@ namespace psx
 	{
 	}
 
-	void BoxColliderSystem::OnComponentCreated(Entity e, BoxColliderComponent& box_collider)
+	void BoxColliderSystem::OnComponentCreated(Entity e, BoxColliderComponent* box_collider)
 	{
 		using namespace physx;
 
@@ -25,12 +25,12 @@ namespace psx
 		}
 
 		RigidBodyComponent& rb = e.GetComponent<RigidBodyComponent>();
-		const yoyo::Vec3 extents = box_collider.GetHalfExtents();
+		const yoyo::Vec3 extents = box_collider->GetHalfExtents();
 
-		m_world.AttachBoxShape(rb, extents, &box_collider.m_box);
+		m_world.AttachBoxShape(rb, extents, &box_collider->m_box);
 	}
 
-	void BoxColliderSystem::OnComponentDestroyed(Entity e, BoxColliderComponent& box_collider)
+	void BoxColliderSystem::OnComponentDestroyed(Entity e, BoxColliderComponent* box_collider)
 	{
 		using namespace physx;
 

@@ -10,6 +10,7 @@
 class SceneGraph;
 class ScriptingSystem;
 class ParticleSystemManager;
+class RenderSceneSystem;
 
 namespace yoyo
 {
@@ -40,27 +41,14 @@ public:
     virtual void OnUpdate(float dt) override;
 
     Scene* GetScene() const {return m_scene;}
-
-    void OnMeshRendererComponentCreated(entt::basic_registry<entt::entity>&, entt::entity entity);
-    void OnMeshRendererComponentDestroyed(entt::basic_registry<entt::entity>&, entt::entity entity);
-
-    void OnCameraComponentCreated(entt::basic_registry<entt::entity>&, entt::entity entity);
-
-    void OnCameraComponentDestroyed(entt::basic_registry<entt::entity>&, entt::entity entity);
-
-    void OnDirectionalLightComponentCreated(entt::basic_registry<entt::entity>&, entt::entity entity);
-
-    void OnDirectionalLightComponentDestroyed(entt::basic_registry<entt::entity>&, entt::entity entity);
 private:
     // Systems
     Ref<SceneGraph> m_scene_graph;
     Ref<psx::PhysicsWorld> m_physics_world;
     Ref<ScriptingSystem> m_scripting;
     Ref<ParticleSystemManager> m_particles;
+    Ref<RenderSceneSystem> m_render_scene;
 
     Scene* m_scene;
-    yoyo::RenderPacket* m_render_packet;
-
-    yoyo::RendererLayer* m_renderer_layer;
     yoyo::Application* m_app;
 };

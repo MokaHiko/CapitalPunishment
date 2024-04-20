@@ -22,6 +22,8 @@ struct ParticleSystemComponent
     const uint32_t GetMaxParticles() const;
     const uint32_t GetParticlesAlive() const;
 
+    void SetExplosiveness(float explosiveness);
+
     void SetMaxParticles(uint32_t size);
 
     const yoyo::Vec3& GetGravityScale() const;
@@ -82,13 +84,15 @@ public:
 
     virtual ~ParticleSystemManager() = default;
 
-    virtual void Init() override;
-    virtual void Shutdown() override;
-    virtual void Update(float dt) override;
+    virtual void OnInit() override;
+    virtual void OnShutdown() override;
+    virtual void OnUpdate(float dt) override;
 
-    virtual void OnComponentCreated(Entity e, ParticleSystemComponent& transform) override;
-    virtual void OnComponentDestroyed(Entity e, ParticleSystemComponent& transform) override;
+    virtual void OnComponentCreated(Entity e, ParticleSystemComponent* transform) override;
+    virtual void OnComponentDestroyed(Entity e, ParticleSystemComponent* transform) override;
 private:
+    yoyo::RenderPacket* m_render_packet = nullptr;
     yoyo::RendererLayer* m_renderer_layer = nullptr;
+
     std::vector<Ref<yoyo::ParticleSystem>> m_particle_systems;
 };

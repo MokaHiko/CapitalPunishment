@@ -32,6 +32,9 @@ add_executable(${PROJECT_NAME}
 	src/SceneGraph/SceneGraph.h
 	src/SceneGraph/SceneGraph.cpp
 
+	src/RenderScene/RenderScene.h
+	src/RenderScene/RenderScene.cpp
+
 	src/Physics/PhysicsTypes.h
 	src/Physics/PhysicsTypes.cpp
 	src/Physics/Collider.h
@@ -60,6 +63,9 @@ add_executable(${PROJECT_NAME}
 
 	src/Scripts/Enemy.h
 	src/Scripts/Enemy.cpp
+
+	src/Scripts/Effect.h
+	src/Scripts/Effect.cpp
 
 	src/Scripts/Projectile.h
 	src/Scripts/Projectile.cpp
@@ -112,7 +118,7 @@ if(CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE STREQUAL "Debug" OR TRUE)
 else()
 	if(MSVC)
     	message("Building snippet in [MSVC][release] configuration")
-    	target_link_directories(${PROJECT_NAME} PUBLIC ${PHYSX_LIB_PATH}/bin/win.x86_64.vc143.md/release) # This is the path where PhysX libraries are installed
+    	target_link_directories(${PROJECT_NAME} PUBLIC ${PHYSX_LIB_PATH}/lib/release) # This is the path where PhysX libraries are installed
 	elseif(UNIX)
     message("Building snippet in release configuration with PhysX ${PHYSX_BUILD_TYPE} configuration")
     link_directories("PhysX/bin/linux.clang/${PHYSX_BUILD_TYPE}") # This is the path where PhysX libraries are installed

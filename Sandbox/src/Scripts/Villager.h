@@ -13,6 +13,8 @@ public:
 
     virtual void OnUpdate(float dt) override;
 private:
+    Entity m_game_camera;
+private:
     float attack_speed = 5.0f;
     float m_time = 0.0f;
 };

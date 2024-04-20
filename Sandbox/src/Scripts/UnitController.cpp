@@ -12,82 +12,13 @@
 #include "Unit.h"
 #include "Projectile.h"
 #include "Turret.h"
+#include "Effect.h"
 
 // TODO: Make projectile factories
 #include <Resource/ResourceManager.h>
 #include "ParticleSystem/Particles.h"
 
-class AnimateTransformProcess : public Process
-{
-public:
-	AnimateTransformProcess(Entity e, const yoyo::Vec3& t_pos, const yoyo::Quat& t_rot, const yoyo::Vec3& t_scale, float duration)
-	{
-		if (!e.IsValid())
-		{
-			YWARN("AnimateTransformProcess: Entity handle is null. Failing!");
-			Fail();
-			return;
-		}
-
-		m_entity = e;
-		m_duration = duration;
-
-		start_position = e.GetComponent<TransformComponent>().position;
-		target_position = t_pos;
-
-		start_rotation = e.GetComponent<TransformComponent>().quat_rotation;
-		target_rotation = t_rot;
-
-		start_scale = e.GetComponent<TransformComponent>().scale;
-		target_scale = t_scale;
-	}
-	virtual ~AnimateTransformProcess() = default;
-
-	virtual void OnUpdate(float dt) override
-	{
-		if (!m_entity.IsValid())
-		{
-			YWARN("AnimateTransformProcess: Entity handle is null. Failing!");
-			Fail();
-			return;
-		}
-
-		m_time_elapsed += dt;
-		if (m_time_elapsed >= m_duration)
-		{
-			Succeed();
-		}
-		TransformComponent& transform = m_entity.GetComponent<TransformComponent>();
-
-		transform.position = yoyo::Lerp(start_position, target_position, m_time_elapsed / m_duration);
-		transform.quat_rotation = yoyo::Slerp(start_rotation, target_rotation, m_time_elapsed / m_duration);
-		transform.scale = yoyo::Lerp(start_scale, target_scale, m_time_elapsed / m_duration);
-	};
-
-	// Process end callbacks
-	virtual void OnSuccess(){}
-
-	virtual void OnFail() {}
-
-	virtual void OnAbort() {}
-private:
-	Entity m_entity;
-
-	yoyo::Vec3 start_position;
-	yoyo::Vec3 target_position;
-
-	yoyo::Vec3 start_scale;
-	yoyo::Vec3 target_scale;
-
-	yoyo::Quat start_rotation;
-	yoyo::Quat target_rotation;
-
-	float m_time_elapsed = 0.0f;
-	float m_duration = 0.5f;
-};
-
 static yoyo::PRNGenerator<float> pos_generator(-100.0f, 100.0f);
-
 UnitController::UnitController(Entity e)
 	:ScriptableEntity(e) {}
 
@@ -149,11 +80,11 @@ void UnitController::OnUpdate(float dt)
 
 	// Movement
 	yoyo::Vec3 diff = m_target_position - transform.position;
-	if (yoyo::Length(diff) > 0.15f)
+	float distance = yoyo::Length(diff);
+	if (!yoyo::FloatCompare(distance, 0.0f, 1.1f))
 	{
 		const UnitMovementStats& movement_stats = GetComponent<Unit>().GetMovementStats();
 		yoyo::Vec3 dir = yoyo::Normalize(diff);
-
 		GetComponent<psx::RigidBodyComponent>().AddForce(dir * movement_stats.agility * dt, psx::ForceMode::Impulse);
 
 		// Process View
@@ -216,29 +147,14 @@ void UnitController::OnUpdate(float dt)
 
 void UnitController::BasicAttack()
 {
-	// const auto& transform = GetComponent<TransformComponent>();
-	// const auto& view_transform = m_view.GetComponent<TransformComponent>();
-	// const yoyo::Vec3& fire_point = transform.position + (view_transform.Forward() * 2.0f);
-
-	// psx::RaycastHit hit;
-	// if(Raycast(fire_point, view_transform.Forward(), 1000.0f, hit))
-	// {
-	// 	Entity e(hit.entity_id, GetScene());
-
-	// 	Unit* unit;
-	// 	if(e.TryGetComponent<Unit>(&unit))
-	// 	{
-	// 		unit->TakeDamage(100.0f);
-	// 	}
-	// }
-
 	//Projectile
 	const TransformComponent& view_transform = m_view.GetComponent<TransformComponent>();
 	yoyo::Vec3 fire_point = GetComponent<TransformComponent>().position + (view_transform.Forward() * 3.0f);
 	fire_point.y += 1.0f;
 
-	float bullet_speed = 10.0f;
-	yoyo::Mat4x4 t_matrix = yoyo::TranslationMat4x4(fire_point) * yoyo::ScaleMat4x4({0.5f, 0.5f, 0.5f});
+	float bullet_speed = 30.0f;
+	yoyo::Mat4x4 t_matrix = yoyo::TranslationMat4x4(fire_point) * 
+							yoyo::ScaleMat4x4({0.5f, 0.5f, 0.5f});
 
 	Entity b = Instantiate("Bullet", t_matrix);
 	TransformComponent& b_t = b.GetComponent<TransformComponent>();
@@ -253,37 +169,27 @@ void UnitController::BasicAttack()
 	rb.LockRotationAxis({1,1,1});
 	rb.SetUseGravity(false);
 
-	// auto& particles = b.AddComponent<ParticleSystemComponent>();
-	// particles.SetMaxParticles(32);
-	// particles.SetLifeTimeRange(0, 0.4f);
-	// particles.SetEmissionRate(3);
-
-	// yoyo::Vec3 p_v = { b.GetComponent<TransformComponent>().Forward() * bullet_speed};
-	// p_v.y = 2.0f;
-	// particles.SetLinearVelocityRange(p_vj, p_v);
-	// particles.SetScaleRange(0.15f, 1.5f);A
-
-	auto root_id = GetScene()->Root().GetComponent<TransformComponent>().self.Id();
-	const TransformComponent& root_transform = GetScene()->Root().GetComponent<TransformComponent>();
-
-	if (GetScene()->Root().IsValid())
-	{
-		auto new_root_id = GetScene()->Root().GetComponent<TransformComponent>().self.Id();
-		if (new_root_id != root_id)
-		{
-			static bool run_once = [&]()
-			{
-				YINFO("name: %s", GetScene()->Root().GetComponent<TagComponent>().tag.c_str());
-				YINFO("root change self: %d", new_root_id);
-				return true;
-			}();
-		}
-	}
-
-	//psx::BoxColliderComponent& col = b.AddComponent<psx::BoxColliderComponent>(yoyo::Vec3{0.5f, 0.5f, 0.5f});
+	psx::BoxColliderComponent& col = b.AddComponent<psx::BoxColliderComponent>(yoyo::Vec3{0.5f, 0.5f, 0.5f});
 	b.AddComponent<Projectile>(b);
 	yoyo::Vec3 impulse = b.GetComponent<TransformComponent>().Forward() * bullet_speed;
 	rb.AddForce(impulse, psx::ForceMode::Impulse);
+
+	// Muzzle flare
+	if(true){
+		auto explosion = Instantiate("explosion");
+		explosion.AddComponent<Effect>(b);
+		auto& particles = explosion.AddComponent<ParticleSystemComponent>();
+		yoyo::Vec3 v = {-10.0f, 0.0f, -10.0f};
+		
+		particles.SetMaxParticles(128);
+		particles.SetExplosiveness(1.0f);
+		particles.SetLifeTimeRange(1.0f, 3.0f);
+		particles.SetLinearVelocityRange(v , v );
+		particles.SetScaleRange(0.15, 1.5f);
+		particles.SetMaxParticles(128);
+		
+		b.GetComponent<TransformComponent>().AddChild(explosion);
+	}
 }
 
 void UnitController::AltAttack()
@@ -304,7 +210,7 @@ void UnitController::AltAttack()
 
 	psx::RigidBodyComponent& rb = bullet.AddComponent<psx::RigidBodyComponent>();
 	//rb.SetUseGravity(false);
-	rb.LockRotationAxis({1,1,1});
+	rb.LockRotationAxis({0,1,0});
 
 	//psx::BoxColliderComponent& col = bullet.AddComponent<psx::BoxColliderComponent>(yoyo::Vec3{0.25f, 0.25f, 0.25f});
 	psx::BoxColliderComponent& col = bullet.AddComponent<psx::BoxColliderComponent>();

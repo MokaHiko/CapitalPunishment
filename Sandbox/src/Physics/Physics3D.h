@@ -29,12 +29,12 @@ namespace psx
         PhysicsWorld(Scene* scene);
         virtual ~PhysicsWorld() = default;
 
-        virtual void Init() override;
-        virtual void Shutdown() override;
-        virtual void Update(float dt) override;
+        virtual void OnInit() override;
+        virtual void OnShutdown() override;
+        virtual void OnUpdate(float dt) override;
 
-        virtual void OnComponentCreated(Entity e, RigidBodyComponent& rb) override;
-        virtual void OnComponentDestroyed(Entity e, RigidBodyComponent& rb) override;
+        virtual void OnComponentCreated(Entity e, RigidBodyComponent* rb) override;
+        virtual void OnComponentDestroyed(Entity e, RigidBodyComponent* rb) override;
     public:
         // Actor functions
         void AttachBoxShape(RigidBodyComponent& rb, const yoyo::Vec3& extents, physx::PxBoxGeometry** box_shape, PhysicsMaterial* material = nullptr);
@@ -44,9 +44,6 @@ namespace psx
     private:
         physx::PxRigidDynamic* CreateDynamic(const physx::PxTransform& t, const physx::PxGeometry& geometry, const physx::PxVec3& velocity = physx::PxVec3(0));
         void CreateStack(const physx::PxTransform& t, physx::PxU32 size, physx::PxReal halfExtent);
-    private:
-        // Subsystem
-        Ref<BoxColliderSystem> m_box_collider_system;
     private:
         physx::PxDefaultAllocator m_allocator;
         physx::PxDefaultErrorCallback   m_errorCallback;

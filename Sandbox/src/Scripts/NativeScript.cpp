@@ -13,8 +13,9 @@
 #include "Scripts/UnitController.h"
 #include "Scripts/VillageManager.h"
 #include "Scripts/Villager.h"
+#include "Scripts/Effect.h"
 
-void ScriptingSystem::Init()
+void ScriptingSystem::OnInit()
 {
 	yoyo::EventManager::Instance().Subscribe(ScriptCreatedEvent::s_event_type, [&](Ref<yoyo::Event> event) {
 		const Ref<ScriptCreatedEvent>& script_event = std::static_pointer_cast<ScriptCreatedEvent>(event);
@@ -34,7 +35,7 @@ void ScriptingSystem::Init()
 		return false;
 	});
 }
-void ScriptingSystem::Shutdown() {}
+void ScriptingSystem::OnShutdown() {}
 
 template<typename T>
 void UpdateScript(Scene* scene, float dt)
@@ -59,7 +60,7 @@ void UpdateScript(Scene* scene, float dt)
 	}
 }
 
-void ScriptingSystem::Update(float dt)
+void ScriptingSystem::OnUpdate(float dt)
 {
 	const auto& scene = GetScene();
 
@@ -72,16 +73,17 @@ void ScriptingSystem::Update(float dt)
 	UpdateScript<UnitController>(scene, dt);
 	UpdateScript<VillageManagerComponent>(scene, dt);
 	UpdateScript<VillagerComponent>(scene, dt);
+	UpdateScript<Effect>(scene, dt);
 
 	// Process are updated after all scripts
 	UpdateProcesses(dt);
 }
 
-void ScriptingSystem::OnComponentCreated(Entity e, NativeScriptComponent& native_script)
+void ScriptingSystem::OnComponentCreated(Entity e, NativeScriptComponent* native_script)
 {
 }
 
-void ScriptingSystem::OnComponentDestroyed(Entity e, NativeScriptComponent& native_script)
+void ScriptingSystem::OnComponentDestroyed(Entity e, NativeScriptComponent* native_script)
 {
 }
 
@@ -108,6 +110,7 @@ void ProcessScriptCollision(psx::Collision& col, Entity& e1, Entity& e2)
 	{
 		std::swap(col.a, col.b);
 		e2.GetComponent<T>().OnCollisionEnter(col);
+		std::swap(col.a, col.b);
 	}
 }
 

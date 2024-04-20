@@ -91,9 +91,11 @@ namespace psx
 	PhysicsWorld::PhysicsWorld(Scene* scene)
 		:System<RigidBodyComponent>(scene)
 	{
+		// Subsystems
+		AddSubsystem(CreateRef<BoxColliderSystem>(GetScene(), *this));
 	}
 
-	void PhysicsWorld::Init()
+	void PhysicsWorld::OnInit()
 	{
 		m_foundation = PxCreateFoundation(PX_PHYSICS_VERSION, m_allocator, m_errorCallback);
 
@@ -130,10 +132,6 @@ namespace psx
 		PxRigidStatic* groundPlane = PxCreatePlane(*m_physics, PxPlane(0, 1, 0, 0), *m_material);
 		m_scene->addActor(*groundPlane);
 
-		// Init subsystems
-		m_box_collider_system = CreateRef<BoxColliderSystem>(GetScene(), *this);
-		m_box_collider_system->Init();
-
 		// for (PxU32 i = 0;i < 5;i++)
 		// {
 		// 	CreateStack(PxTransform(PxVec3(0, 0, stackZ -= 10.0f)), 10, 2.0f);
@@ -143,10 +141,8 @@ namespace psx
 		// 	CreateDynamic(PxTransform(PxVec3(0, 40, 100)), PxSphereGeometry(10), PxVec3(0, -50, -100));
 	}
 
-	void PhysicsWorld::Shutdown()
+	void PhysicsWorld::OnShutdown()
 	{
-		m_box_collider_system->Shutdown();
-
 		PX_RELEASE(m_physics);
 		PX_RELEASE(m_dispatcher);
 		PX_RELEASE(m_physics);
@@ -161,7 +157,7 @@ namespace psx
 		PX_RELEASE(m_foundation);
 	}
 
-	void PhysicsWorld::Update(float dt)
+	void PhysicsWorld::OnUpdate(float dt)
 	{
 		{
 			yoyo::ScopedTimer profiler([&](const yoyo::ScopedTimer& timer) {
@@ -192,7 +188,7 @@ namespace psx
 		}
 	}
 
-	void PhysicsWorld::OnComponentCreated(Entity e, RigidBodyComponent& rb)
+	void PhysicsWorld::OnComponentCreated(Entity e, RigidBodyComponent* rb)
 	{
 		using namespace physx;
 
@@ -201,21 +197,21 @@ namespace psx
 						{transform.quat_rotation.x, transform.quat_rotation.y, transform.quat_rotation.z, transform.quat_rotation.w }};
 
 
-		rb.actor = m_physics->createRigidDynamic(t);
-		rb.actor->userData = (void*)(uint64_t)(e.Id());
-		m_scene->addActor(*rb.actor);
+		rb->actor = m_physics->createRigidDynamic(t);
+		rb->actor->userData = (void*)(uint64_t)(e.Id());
+		m_scene->addActor(*rb->actor);
 
-		PxRigidBodyExt::updateMassAndInertia(*(rb.actor->is<PxRigidBody>()), 10.0f);
+		PxRigidBodyExt::updateMassAndInertia(*(rb->actor->is<PxRigidBody>()), 10.0f);
 	}
 
-	void PhysicsWorld::OnComponentDestroyed(Entity e, RigidBodyComponent& rb)
+	void PhysicsWorld::OnComponentDestroyed(Entity e, RigidBodyComponent* rb)
 	{
 		using namespace physx;
 		const TransformComponent& transform = e.GetComponent<TransformComponent>();
 		PxTransform t = { {transform.position.x, transform.position.y, transform.position.z}, PxQuat{transform.quat_rotation.x, transform.quat_rotation.y, transform.quat_rotation.z, transform.quat_rotation.w}};
 
 		// Implicit release of shapes
-		rb.actor->release();
+		rb->actor->release();
 	}
 
 	void SimulationEventCallback::onTrigger(physx::PxTriggerPair* pairs, physx::PxU32 count)
